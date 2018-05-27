@@ -22,6 +22,7 @@ public:
     RobotSettings settings_;
 
 signals:
+    void signalConnectStatusChanged();
 
 public slots:
     void slotOnSocketConnected();

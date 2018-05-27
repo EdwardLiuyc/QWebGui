@@ -64,6 +64,7 @@ public:
 protected:
     void initRobotTableView();
     void resizeEvent(QResizeEvent* event);
+    void timerEvent(QTimerEvent* event);
 
 signals:
 
@@ -77,6 +78,8 @@ private:
 
     RobotTableModel* table_model_;
     QTableView*  robots_table_;
+
+    int32_t timer_for_reset_model_;
 };
 
 #endif // ROBOTSELECTVIEW_H

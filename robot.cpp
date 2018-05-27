@@ -17,12 +17,14 @@ Robot::~Robot()
 void Robot::slotOnSocketConnected()
 {
     qDebug() << "WebSocket connected";
+    connected_ = true;
     connect( &socket_, &QWebSocket::textMessageReceived,this, &Robot::slotOnSocketRecieveMsg);
 }
 
 void Robot::slotOnSocketDisconnected()
 {
     qDebug() << "WebSocket disconnected";
+    connected_ = false;
 }
 
 void Robot::slotOnSocketRecieveMsg(QString message)
@@ -32,6 +34,6 @@ void Robot::slotOnSocketRecieveMsg(QString message)
 
 void Robot::connectSocket()
 {
-    qDebug() << "connect to " << url_;
+    qDebug() << "connect to" << url_;
     socket_.open( url_ );
 }

@@ -1,5 +1,6 @@
 #include "robotselectview.h"
 #include <QHeaderView>
+#include <QTimerEvent>
 
 RobotSelectView::RobotSelectView(std::list<Robot> *list, QWidget *parent)
     : QWidget(parent)
@@ -16,6 +17,8 @@ RobotSelectView::RobotSelectView(std::list<Robot> *list, QWidget *parent)
     }
     QObject::connect( operation_btns_[kSelectAll], SIGNAL(clicked()), this, SLOT(slotSelectAllBtnClicked()));
     QObject::connect( operation_btns_[kConnect], SIGNAL(clicked()), this, SLOT(slotConnectBtnClicked()));
+
+    timer_for_reset_model_ = startTimer( 1000 );
 }
 
 void RobotSelectView::resizeEvent(QResizeEvent *event)
@@ -36,8 +39,18 @@ void RobotSelectView::resizeEvent(QResizeEvent *event)
     int32_t table_hgt = btn_top - gap_hgt;
     robots_table_->setGeometry( 0, 0, view_wdt, table_hgt);
 
-
     QWidget::resizeEvent( event );
+}
+
+void RobotSelectView::timerEvent(QTimerEvent *event)
+{
+    if( isVisible() )
+    {
+        if( timer_for_reset_model_ == event->timerId() )
+            table_model_->resetData();
+    }
+
+    QWidget::timerEvent( event );
 }
 
 void RobotSelectView::initRobotTableView()

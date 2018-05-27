@@ -141,7 +141,7 @@ void QWebGui::updateRobotListFromSettings()
 
     if( robot_size < setting_size )
         for(int i = 0; i < setting_size-robot_size; ++i )
-            robots_.emplace( robots_.end(), this );
+            robots_.emplace_back( this );
     else if( robot_size > setting_size )
         for( int i = 0; i < robot_size-setting_size; ++i )
             robots_.pop_back();
