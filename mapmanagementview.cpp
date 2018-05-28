@@ -1,5 +1,7 @@
 #include "mapmanagementview.h"
 #include <QHeaderView>
+#include <QDebug>
+#include <QMessageBox>
 
 MapManagementView::MapManagementView(std::list<MapSetting> *list, QWidget *parent)
     : QWidget(parent)
@@ -78,7 +80,30 @@ void MapManagementView::slotOnAddBtnClicked()
     if( !map_setting_dlg_ )
         map_setting_dlg_ = new AddMapSettingDlg( this );
 
-    map_setting_dlg_->exec();
+    if( map_setting_dlg_->exec() == QDialog::Accepted )
+    {
+        MapSetting new_setting;
+        if( map_setting_dlg_->getSetting( &new_setting ) == 0 )
+        {
+            if( !map_setting_list_->empty() )
+            {
+                for( MapSetting& setting : *map_setting_list_ )
+                    if( setting.name_ == new_setting.name_ )
+                    {
+                        QMessageBox::warning( this, "Warning"
+                                              , "Already have the setting named \n\"" + setting.name_ + "\"");
+                        return;
+                    }
+            }
+            map_setting_list_->push_back( new_setting );
+        }
+        else
+            qDebug() << "Cannot get map setting!";
+    }
+    else
+    {
+        // Canceled
+    }
 }
 
 

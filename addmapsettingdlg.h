@@ -5,6 +5,7 @@
 #include <QLineEdit>
 #include <QToolButton>
 #include <QLabel>
+#include <QPushButton>
 #include "common_defines.h"
 
 class BrowserLineEdit : public QLineEdit
@@ -41,6 +42,10 @@ public:
     {
         kName, kImageFilePath, kImageSettingFilePath, kContentCount
     };
+    enum Operations
+    {
+        kOk, kCancel, kOperationCount
+    };
 
     int32_t getSetting( MapSetting* setting );
 
@@ -53,10 +58,15 @@ public slots:
     void slotBrowseImageFile();
     void slotBrowseXmlFile();
 
+    void slotOkBtnClicked();
+    void slotCancelBtnClicked();
+
 private:
     QLabel* content_label_[kContentCount];
     BrowserLineEdit* browser_edit_[kContentCount];
     MapSetting map_setting_;
+    QPushButton *operation_btns_[kOperationCount];
+
 };
 
 #endif // ADDMAPSETTINGDLG_H

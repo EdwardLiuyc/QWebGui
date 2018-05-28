@@ -27,13 +27,11 @@ public:
 
 protected:
     void resizeEvent(QResizeEvent* event);
-    void showEvent(QShowEvent* event);
     void paintEvent(QPaintEvent* event);
     void mousePressEvent(QMouseEvent* event);
     void mouseReleaseEvent(QMouseEvent* event);
     void mouseMoveEvent(QMouseEvent* event);
 
-    void updateRobotTableView();
     void paintACoordSystem(QPainter *painter, QPoint& org );
 
 
@@ -58,9 +56,11 @@ private:
 
     // ** for paint **
     bool has_map_;
+    bool got_first_origin_;
     QPoint start_pos_;
     QPoint origin_;
     Vector2i origin_offset_;
+    Vector2i origin_offset_single_move_;
 
 };
 

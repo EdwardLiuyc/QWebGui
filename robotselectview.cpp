@@ -62,9 +62,9 @@ void RobotSelectView::initRobotTableView()
     table_model_ = new RobotTableModel( robots_table_ );
     table_model_->setRobotData( robots_list_ );
     robots_table_->setModel( table_model_ );
-    robots_table_->setColumnWidth( kNumber, 30 );
+    robots_table_->setColumnWidth( kNumber, 50 );
     robots_table_->setColumnWidth( kConnectionStatus, 50 );
-    robots_table_->setColumnWidth( kSelectCheck, 30 );
+    robots_table_->setColumnWidth( kSelectCheck, 50 );
     robots_table_->horizontalHeader()->setSectionResizeMode( kName,QHeaderView::Stretch);
 
     robots_table_->setSelectionBehavior(QAbstractItemView::SelectRows);

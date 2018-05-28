@@ -1,5 +1,7 @@
 #include "addmapsettingdlg.h"
 #include <QFileDialog>
+#include <QDebug>
+#include <QMessageBox>
 
 BrowserLineEdit::BrowserLineEdit(QWidget* parent, bool with_button)
         : QLineEdit(parent)
@@ -30,7 +32,9 @@ void BrowserLineEdit::resizeEvent(QResizeEvent *event)
 AddMapSettingDlg::AddMapSettingDlg(QWidget *parent)
     : QDialog( parent )
 {
-    resize( 600, 320 );
+    resize( 540, 320 );
+    setMaximumSize( 540, 320 );
+    setMinimumSize( 540, 320 );
 
     QString content_strs[kContentCount] = {"Name","Image File Path","Xml File Path"};
     for( int i = 0; i < kContentCount; ++i )
@@ -48,6 +52,17 @@ AddMapSettingDlg::AddMapSettingDlg(QWidget *parent)
 
     connect( browser_edit_[kImageFilePath], SIGNAL(signalBrowse()), this, SLOT(slotBrowseImageFile()));
     connect( browser_edit_[kImageSettingFilePath], SIGNAL(signalBrowse()), this, SLOT(slotBrowseXmlFile()));
+
+    QString operation_str[kOperationCount] = {"Ok", "Cancel"};
+    for( int i = 0; i < kOperationCount; ++i )
+    {
+        operation_btns_[i] = new QPushButton( this );
+        operation_btns_[i]->setText( operation_str[i] );
+        operation_btns_[i]->setFont( SYSTEM_UI_FONT_10_BOLD );
+        operation_btns_[i]->setFocusPolicy(Qt::NoFocus);
+    }
+    QObject::connect( operation_btns_[kOk], SIGNAL(clicked()), this, SLOT(slotOkBtnClicked()));
+    QObject::connect( operation_btns_[kCancel], SIGNAL(clicked()), this, SLOT(slotCancelBtnClicked()));
 }
 
 void AddMapSettingDlg::resizeEvent(QResizeEvent *event)
@@ -55,7 +70,7 @@ void AddMapSettingDlg::resizeEvent(QResizeEvent *event)
     int32_t view_wdt = this->width();
 
     int32_t gap_left = 60;
-    int32_t gap_top = 100;
+    int32_t gap_top = 80;
     int32_t lbl_hgt = 30;
     int32_t gap_hgt = 10;
     int32_t lbl_wdt = content_label_[kImageFilePath]->width();
@@ -67,6 +82,13 @@ void AddMapSettingDlg::resizeEvent(QResizeEvent *event)
         content_label_[i]->setGeometry( gap_left, gap_top + i*(lbl_hgt+gap_hgt), lbl_wdt, lbl_hgt);
         browser_edit_[i]->setGeometry(edit_left, gap_top + i*(lbl_hgt+gap_hgt), edit_wdt, lbl_hgt);
     }
+
+    int32_t btn_gap = 20;
+    int32_t btn_wth = ( edit_wdt - btn_gap) / 2;
+    for( int i = 0; i < kOperationCount; ++i )
+        operation_btns_[i]->setGeometry( view_wdt - gap_left - (kOperationCount-i)*(btn_wth+btn_gap) + btn_gap,
+                                         gap_top + 3*(lbl_hgt+gap_hgt),
+                                         btn_wth, lbl_hgt );
 
     QDialog::resizeEvent( event );
 }
@@ -82,6 +104,26 @@ void AddMapSettingDlg::slotBrowseXmlFile()
     QString path = QFileDialog::getOpenFileName(this, tr("Open Xml File"), ".", tr("Image Files(*.xml *.XML)"));
     browser_edit_[kImageSettingFilePath]->setText( path );
 }
+
+void AddMapSettingDlg::slotOkBtnClicked()
+{
+    map_setting_.name_ = browser_edit_[kName]->text();
+    map_setting_.image_file_name_ = browser_edit_[kImageFilePath]->text();
+    map_setting_.image_setting_file_name_ = browser_edit_[kImageSettingFilePath]->text();
+    if( checkSetting() < 0 )
+    {
+        qDebug() << "not good setting!";
+        QMessageBox::critical(NULL, "critical", "The setting is not complete!", QMessageBox::Yes , QMessageBox::Yes);
+    }
+    else
+        accept();
+}
+
+void AddMapSettingDlg::slotCancelBtnClicked()
+{
+    reject();
+}
+
 
 int32_t AddMapSettingDlg::getSetting(MapSetting *setting)
 {

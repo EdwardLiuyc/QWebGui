@@ -6,6 +6,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, QWidget *parent)
     : QWidget(parent)
     , robots_(robots)
     , has_map_( false )
+    , got_first_origin_( false )
     , origin_()
     , origin_offset_()
 {
@@ -25,6 +26,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, QWidget *parent)
 
     return_btn_ = new QPushButton(this);
     return_btn_->setText("back");
+    return_btn_->setFocusPolicy( Qt::NoFocus );
     QPalette pal = return_btn_->palette();
     pal.setColor(QPalette::ButtonText,QColor(255,0,0));
     return_btn_->setPalette(pal);
@@ -37,36 +39,31 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     int32_t view_wdt = this->width();
     int32_t view_hgt = this->height();
 
+    origin_.setX( view_wdt*0.5 );
+    origin_.setY( view_hgt*0.5 );
+
     int32_t btn_wdt = 140;
     int32_t btn_hgt = 40;
     int32_t gap_wdt = 20;
     int32_t gap_hgt = 10;
     const int top_hgt = 30;
-
     for( int i = 0; i < kOperationCount; ++i )
         operation_btns_[i]->setGeometry( gap_wdt, i*(btn_hgt+gap_hgt) + top_hgt, btn_wdt, btn_hgt );
 
     return_btn_->setGeometry( gap_wdt, view_hgt - btn_hgt - top_hgt, btn_wdt, btn_hgt );
 
     int32_t table_left = btn_wdt + gap_wdt * 2;
-    int32_t table_wdt = ( view_wdt * 0.4 ) ;
+    int32_t table_wdt = ( view_wdt * 0.35 ) ;
     table_wdt = table_wdt > 600 ? 600 : table_wdt;
-    robot_select_view_->setGeometry( table_left, 0, table_wdt, view_hgt * 0.7);
+    robot_select_view_->setGeometry( table_left, top_hgt, table_wdt, view_hgt - top_hgt * 2);
 
     QWidget::resizeEvent( event );
-}
-
-void StatusMonitorView::showEvent(QShowEvent *event)
-{
-    updateRobotTableView();
-
-    QWidget::showEvent( event );
 }
 
 void StatusMonitorView::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
-            start_pos_ = event->pos();
+        start_pos_ = event->pos();
 
     QWidget::mousePressEvent(event);
 }
@@ -75,7 +72,7 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
 {
     if( event->buttons() & Qt::LeftButton )
     {
-        origin_offset_ =  event->pos() - start_pos_;
+        origin_offset_single_move_ =  event->pos() - start_pos_;
         update();
     }
 
@@ -84,6 +81,10 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
 
 void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
 {
+    origin_offset_ += origin_offset_single_move_;
+    origin_offset_single_move_.setX( 0 );
+    origin_offset_single_move_.setY( 0 );
+
     QWidget::mouseReleaseEvent( event );
 }
 
@@ -110,14 +111,11 @@ void StatusMonitorView::paintACoordSystem(QPainter *painter, QPoint &org)
 
 void StatusMonitorView::paintEvent(QPaintEvent *event)
 {
-    int32_t view_wdt = this->width();
-    int32_t view_hgt = this->height();
     QPainter painter( this );
     if( !has_map_ )
     {
-        origin_.setX( view_wdt*0.5 );
-        origin_.setY( view_hgt*0.5 );
-        QPoint tmp_origin = origin_ + origin_offset_;
+
+        QPoint tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
         paintACoordSystem( &painter, tmp_origin );
     }
     else
@@ -133,10 +131,6 @@ void StatusMonitorView::slotOnReturnBtnClicked()
 {
     this->hide();
     emit signalReturn();
-}
-
-void StatusMonitorView::updateRobotTableView()
-{
 }
 
 void StatusMonitorView::slotOnSelectRobotBtnClicked()
