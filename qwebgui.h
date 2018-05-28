@@ -6,6 +6,7 @@
 #include <list>
 #include "robotmanagementview.h"
 #include "statusmonitorview.h"
+#include "mapmanagementview.h"
 #include "robot.h"
 
 class QWebGui : public QMainWindow
@@ -29,7 +30,9 @@ public:
 public slots:
     void slotOnRobotManageClicked();
     void slotOnRobotManageReturned();
-//    void slotOnMapManageClicked();
+
+    void slotOnMapManageClicked();
+    void slotOnMapManageReturned();
 //    void slotOnPathManageClicked();
     void slotOnStatusMonitorClicked();
     void slotOnStatusMonitorReturned();
@@ -44,9 +47,12 @@ private:
     QPushButton* main_btns_[kMainBtnCount];
     RobotManagementView* robot_manage_view_;
     StatusMonitorView* status_monitor_view_;
+    MapManagementView* map_manage_view_;
 
+    // All data
     std::list<RobotSettings> robot_setting_list_;
     std::list<Robot> robots_;
+    std::list<MapSetting> map_setting_list_;
 };
 
 #endif // QWEBGUI_H

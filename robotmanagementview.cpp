@@ -23,7 +23,7 @@ RobotManagementView::RobotManagementView(std::list<RobotSettings> *list, QWidget
     robot_setting_table_->setEditTriggers( QAbstractItemView::DoubleClicked );
     robot_setting_table_->verticalHeader()->setDefaultAlignment(Qt::AlignCenter);
 
-    QString operations_str[kOperationsCount] = {"Save to File", "Delete"};
+    QString operations_str[kOperationsCount] = {"Save Config", "Delete"};
     for( int i = 0; i < kOperationsCount; ++i )
     {
         operation_btns_[i] = new QPushButton(this);

@@ -7,15 +7,16 @@ RobotSelectView::RobotSelectView(std::list<Robot> *list, QWidget *parent)
     , robots_list_( list )
 {
     initRobotTableView();
-    QString operation_str[kOperationCount] = {"Select\nAll", "Connect\nSelected"};
+    QString operation_str[kOperationCount] = {"Select\nAll", "Close\nSelected","Connect\nSelected"};
     for( int i = 0; i < kOperationCount; ++i )
     {
         operation_btns_[i] = new QPushButton(this);
         operation_btns_[i]->setText( operation_str[i] );
-        operation_btns_[i]->setFont( SYSTEM_UI_FONT_12_BOLD );
+        operation_btns_[i]->setFont( SYSTEM_UI_FONT_10_BOLD );
         operation_btns_[i]->setFocusPolicy(Qt::NoFocus);
     }
     QObject::connect( operation_btns_[kSelectAll], SIGNAL(clicked()), this, SLOT(slotSelectAllBtnClicked()));
+    QObject::connect( operation_btns_[kClose], SIGNAL(clicked()), this, SLOT(slotCloseBtnClicked()));
     QObject::connect( operation_btns_[kConnect], SIGNAL(clicked()), this, SLOT(slotConnectBtnClicked()));
 
     timer_for_reset_model_ = startTimer( 1000 );
@@ -81,7 +82,7 @@ void RobotSelectView::slotSelectAllBtnClicked()
     if( robots_list_ )
     {
         for( Robot& robot: *robots_list_ )
-            robot.selected_ = true;
+            robot.selected_for_connect_ = true;
     }
     table_model_->resetData();
 }
@@ -91,9 +92,17 @@ void RobotSelectView::slotConnectBtnClicked()
     if( robots_list_ )
     {
         for( Robot& robot: *robots_list_ )
-            if( robot.selected_ )
+            if( robot.selected_for_connect_ )
                 robot.connectSocket();
     }
+}
+
+void RobotSelectView::slotCloseBtnClicked()
+{
+    if( robots_list_ )
+        for( Robot& robot: *robots_list_ )
+            if( robot.selected_for_connect_ )
+                robot.disconnectSocket();
 }
 
 Qt::ItemFlags RobotTableModel::flags(const QModelIndex &index) const
@@ -141,7 +150,7 @@ QVariant RobotTableModel::data(const QModelIndex &index, int role) const
     case Qt::CheckStateRole:
     {
         if( col == kSelectCheck )
-            return robot->selected_ ? Qt::Checked : Qt::Unchecked;
+            return robot->selected_for_connect_ ? Qt::Checked : Qt::Unchecked;
     }
     default:
         return QVariant();
@@ -219,7 +228,7 @@ bool RobotTableModel::setData(const QModelIndex &index, const QVariant &value, i
     {
         if( col == kSelectCheck )
         {
-            robot->selected_ = (value.toInt() == Qt::Checked);
+            robot->selected_for_connect_ = (value.toInt() == Qt::Checked);
             ret = true;
         }
         break;

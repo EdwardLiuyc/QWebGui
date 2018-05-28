@@ -5,11 +5,13 @@
 #include <QPushButton>
 #include <list>
 
+#define SYSTEM_UI_FONT_10   QFont("system-ui",10,QFont::Light)
 #define SYSTEM_UI_FONT_12   QFont("system-ui",12,QFont::Light)
 #define SYSTEM_UI_FONT_14   QFont("system-ui",14,QFont::Light)
 #define SYSTEM_UI_FONT_16   QFont("system-ui",16,QFont::Light)
 #define SYSTEM_UI_FONT_18   QFont("system-ui",18,QFont::Light)
 
+#define SYSTEM_UI_FONT_10_BOLD   QFont("system-ui",10,QFont::Bold)
 #define SYSTEM_UI_FONT_12_BOLD   QFont("system-ui",12,QFont::Bold)
 #define SYSTEM_UI_FONT_14_BOLD   QFont("system-ui",14,QFont::Bold)
 #define SYSTEM_UI_FONT_16_BOLD   QFont("system-ui",16,QFont::Bold)
@@ -24,6 +26,18 @@ struct RobotSettings
     QString DebugString()
     {
         return name_ + " - " + ip_ + ":" + QString::number(port_);
+    }
+};
+
+struct MapSetting
+{
+    QString name_;
+    QString image_file_name_;
+    QString image_setting_file_name_;
+
+    QString DebugString()
+    {
+        return name_ + "\n" + image_file_name_ + "\n" + image_setting_file_name_;
     }
 };
 

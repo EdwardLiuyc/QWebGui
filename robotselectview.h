@@ -58,7 +58,7 @@ public:
 
     enum Operations
     {
-        kSelectAll, kConnect, kOperationCount
+        kSelectAll, kClose, kConnect, kOperationCount
     };
 
 protected:
@@ -70,6 +70,7 @@ signals:
 
 public slots:
     void slotSelectAllBtnClicked();
+    void slotCloseBtnClicked();
     void slotConnectBtnClicked();
 
 private:
