@@ -35,6 +35,8 @@ public:
 
     using Vector2i = QPoint;
 
+    inline void setMode( MonitorMode mode ){ mode_ = mode; }
+
 protected:
     void resizeEvent(QResizeEvent* event);
     void paintEvent(QPaintEvent* event);
@@ -44,6 +46,8 @@ protected:
     void wheelEvent(QWheelEvent* event);
     void timerEvent(QTimerEvent* event);
 
+    void hideSwitchableWidgets();
+
 signals:
     void signalReturn();
 
@@ -52,13 +56,16 @@ public slots:
 
     void slotOnSelectRobotBtnClicked( bool checked );
     void slotOnSelectMapBtnClicked( bool checked );
+    void slotOnSwitchBtnClicked();
 
 private:
     // ** widgets **
     QPushButton* operation_btns_[kOperationCount];
     QPushButton* return_btn_;
+    QPushButton* switch_btn_;
     RobotSelectView* robot_select_view_;
     QComboBox* map_select_box_;
+    QComboBox* robot_select_box_;
 
     // ** robot data **
     std::list<Robot>* robots_;

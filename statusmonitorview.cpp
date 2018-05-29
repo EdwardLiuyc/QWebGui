@@ -3,17 +3,20 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 
+
+#define SWITCH_TO_MONITOR       QString( "Switch To\nMonitor" )
+#define SWITCH_TO_PATHMANAGER   QString( "Switch To\nPathManage" )
 StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSetting> *maps, QWidget *parent, MonitorMode mode)
-    : QWidget(parent)
-    , robots_(robots)
-    , maps_(maps)
+    : QWidget( parent )
+    , robots_( robots )
+    , maps_( maps )
+    , mode_( mode )
     , has_map_( false )
     , got_first_origin_( false )
     , factor_( 1.0 )
     , origin_()
     , origin_offset_()
     , timer_update_robots_( startTimer(500) )
-    , mode_( mode )
 {
     QString operations_str[kOperationCount] = {"Robots", "Maps"};
     for( int i = 0; i < kOperationCount; ++i )
@@ -30,18 +33,31 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     robot_select_view_ = new RobotSelectView( robots_, this );
     robot_select_view_->setVisible( false );
 
+    // ** return button **
     return_btn_ = new QPushButton(this);
     return_btn_->setText("back");
     return_btn_->setFocusPolicy( Qt::NoFocus );
-    QPalette pal = return_btn_->palette();
-    pal.setColor(QPalette::ButtonText,QColor(255,0,0));
-    return_btn_->setPalette(pal);
     return_btn_->setFont( SYSTEM_UI_FONT_14_BOLD );
     QObject::connect( return_btn_, SIGNAL(clicked()), this, SLOT(slotOnReturnBtnClicked()));
+
+    // ** switch button **
+    switch_btn_ = new QPushButton( this );
+    if( mode_ == MonitorMode::kStatusMonitorMode )
+        switch_btn_->setText(SWITCH_TO_PATHMANAGER);
+    else
+        switch_btn_->setText(SWITCH_TO_MONITOR);
+
+    switch_btn_->setFocusPolicy( Qt::NoFocus );
+    switch_btn_->setFont( SYSTEM_UI_FONT_14_BOLD );
+    QObject::connect( switch_btn_, SIGNAL(clicked()), this, SLOT(slotOnSwitchBtnClicked()));
 
     map_select_box_ = new QComboBox( this );
     map_select_box_->setVisible( false );
     map_select_box_->setFont( SYSTEM_UI_FONT_10_BOLD );
+
+    robot_select_box_ = new QComboBox( this );
+    robot_select_box_->setVisible( false );
+    robot_select_box_->setFont( SYSTEM_UI_FONT_10_BOLD );
 }
 
 void StatusMonitorView::resizeEvent(QResizeEvent *event)
@@ -60,7 +76,10 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     for( int i = 0; i < kOperationCount; ++i )
         operation_btns_[i]->setGeometry( gap_wdt, i*(btn_hgt+gap_hgt) + top_hgt, btn_wdt, btn_hgt );
 
+    int32_t switch_btn_hgt = btn_hgt * 2;
     return_btn_->setGeometry( gap_wdt, view_hgt - btn_hgt - top_hgt, btn_wdt, btn_hgt );
+    switch_btn_->setGeometry( gap_wdt, view_hgt - btn_hgt - switch_btn_hgt - gap_hgt - top_hgt, btn_wdt, switch_btn_hgt );
+
 
     int32_t table_left = btn_wdt + gap_wdt * 2;
     int32_t table_wdt = ( view_wdt * 0.35 ) ;
@@ -68,6 +87,8 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     robot_select_view_->setGeometry( table_left, top_hgt, table_wdt, view_hgt - top_hgt * 2);
 
     map_select_box_->setGeometry( table_left, (btn_hgt+gap_hgt) + top_hgt
+                                  , btn_wdt, btn_hgt );
+    robot_select_box_->setGeometry( table_left, top_hgt
                                   , btn_wdt, btn_hgt );
 
     QWidget::resizeEvent( event );
@@ -172,17 +193,47 @@ void StatusMonitorView::slotOnReturnBtnClicked()
     emit signalReturn();
 }
 
+void StatusMonitorView::slotOnSwitchBtnClicked()
+{
+    hideSwitchableWidgets();
+    mode_ = ( mode_ == kStatusMonitorMode ? kPathManageMode : kStatusMonitorMode );
+    if( mode_ == kStatusMonitorMode )
+    {
+        switch_btn_->setText( SWITCH_TO_PATHMANAGER );
+        parentWidget()->setWindowTitle("Status Monitor");
+    }
+    else
+    {
+        switch_btn_->setText( SWITCH_TO_MONITOR );
+        parentWidget()->setWindowTitle("Path Management");
+    }
+
+}
+
 void StatusMonitorView::slotOnSelectRobotBtnClicked(bool checked)
 {
-    if( checked && operation_btns_[kSelectMap]->isChecked())
-        operation_btns_[kSelectMap]->setChecked( false );
-
-    robot_select_view_->setVisible( checked );
+    if( mode_ == MonitorMode::kStatusMonitorMode )
+    {
+        robot_select_view_->setVisible( checked );
+        if( checked && operation_btns_[kSelectMap]->isChecked())
+            operation_btns_[kSelectMap]->setChecked( false );
+    }
+    else
+    {
+        robot_select_box_->setVisible( checked );
+        robot_select_box_->clear();
+        QStringList robot_names;
+        robot_names.append( QString("Select Robot...") );
+        if( !robots_->empty() )
+            for( Robot& robot : *robots_ )
+                robot_names.append( robot.settings_.name_);
+        robot_select_box_->addItems( robot_names );
+    }
 }
 
 void StatusMonitorView::slotOnSelectMapBtnClicked(bool checked)
 {
-    if( checked && operation_btns_[kSelectRobot]->isChecked() )
+    if( mode_ == MonitorMode::kStatusMonitorMode && checked && operation_btns_[kSelectRobot]->isChecked() )
         operation_btns_[kSelectRobot]->setChecked( false );
 
     map_select_box_->setVisible( checked );
@@ -195,4 +246,10 @@ void StatusMonitorView::slotOnSelectMapBtnClicked(bool checked)
             map_names.append( setting.name_ );
 
     map_select_box_->addItems( map_names );
+}
+
+void StatusMonitorView::hideSwitchableWidgets()
+{
+    for( int i = 0; i < kOperationCount; ++i )
+        operation_btns_[i]->setChecked( false );
 }
