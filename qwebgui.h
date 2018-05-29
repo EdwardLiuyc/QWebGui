@@ -33,7 +33,10 @@ public slots:
 
     void slotOnMapManageClicked();
     void slotOnMapManageReturned();
-//    void slotOnPathManageClicked();
+
+    void slotOnPathManageClicked();
+    void slotOnPathManageReturned();
+
     void slotOnStatusMonitorClicked();
     void slotOnStatusMonitorReturned();
 

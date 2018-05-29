@@ -34,7 +34,8 @@ SOURCES += main.cpp\
     robotselectview.cpp \
     pugixml/pugixml.cpp \
     mapmanagementview.cpp \
-    addmapsettingdlg.cpp
+    addmapsettingdlg.cpp \
+    common_defines.cpp
 
 HEADERS  += qwebgui.h \
     robot.h \

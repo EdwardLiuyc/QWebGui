@@ -127,8 +127,8 @@ QVariant SettingTableModel::data(const QModelIndex &index, int role) const
 
     switch (role)
     {
-    case Qt::TextColorRole:
-        return QColor(Qt::black);
+//    case Qt::TextColorRole:
+//        return QColor(Qt::black);
     case Qt::TextAlignmentRole:
         return QVariant(Qt::AlignCenter);
     case Qt::DisplayRole:

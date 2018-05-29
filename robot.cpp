@@ -8,6 +8,7 @@ Robot::Robot(QObject *parent)
 {
     connect( &socket_, SIGNAL(connected()), this, SLOT(slotOnSocketConnected()));
     connect( &socket_, SIGNAL(disconnected()), this, SLOT(slotOnSocketDisconnected()));
+    connect( &socket_, &QWebSocket::textMessageReceived,this, &Robot::slotOnSocketRecieveMsg);
 }
 
 Robot::~Robot()
@@ -19,7 +20,6 @@ void Robot::slotOnSocketConnected()
 {
     qDebug() << "WebSocket connected to " << url_;
     connected_ = true;
-    connect( &socket_, &QWebSocket::textMessageReceived,this, &Robot::slotOnSocketRecieveMsg);
 }
 
 void Robot::slotOnSocketDisconnected()

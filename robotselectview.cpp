@@ -68,11 +68,10 @@ void RobotSelectView::initRobotTableView()
     robots_table_->horizontalHeader()->setSectionResizeMode( kName,QHeaderView::Stretch);
 
     robots_table_->setSelectionBehavior(QAbstractItemView::SelectRows);
-    robots_table_->horizontalHeader()->setStretchLastSection(true);
     robots_table_->horizontalHeader()->setHighlightSections(false);
     robots_table_->verticalHeader()->hide();
-    robots_table_->setShowGrid(false);
-    robots_table_->setFrameShape(QFrame::NoFrame);
+//    robots_table_->setShowGrid(false);
+//    robots_table_->setFrameShape(QFrame::NoFrame);
     robots_table_->setSelectionMode(QAbstractItemView::SingleSelection);
 
 }
@@ -133,8 +132,8 @@ QVariant RobotTableModel::data(const QModelIndex &index, int role) const
 
     switch (role)
     {
-    case Qt::TextColorRole:
-        return QColor(Qt::black);
+//    case Qt::TextColorRole:
+//        return QColor(Qt::black);
     case Qt::TextAlignmentRole:
         return QVariant(Qt::AlignCenter);
     case Qt::DisplayRole:
@@ -151,7 +150,14 @@ QVariant RobotTableModel::data(const QModelIndex &index, int role) const
     {
         if( col == kSelectCheck )
             return robot->selected_for_connect_ ? Qt::Checked : Qt::Unchecked;
+        break;
     }
+    case Qt::BackgroundRole:
+        if( robot->connected_ )
+            return QColor(Qt::green);
+        else
+            return QColor(Qt::black);
+
     default:
         return QVariant();
     }

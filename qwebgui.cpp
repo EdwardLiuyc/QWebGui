@@ -1,5 +1,6 @@
 #include "qwebgui.h"
 #include <QDebug>
+#include <QStyleFactory>
 #include "common_defines.h"
 #include "pugixml/pugixml.hpp"
 #include "pugixml/pugiconfig.hpp"
@@ -10,11 +11,12 @@ QWebGui::QWebGui(QWidget *parent)
     , status_monitor_view_( NULL )
     , map_manage_view_( NULL )
 {
+/*
     this->setStyleSheet( "QPushButton{ \
                              background-color: white; \
                              border-style: outset;  \
                              border-width: 3px;     \
-                             border-radius: 0px;   \
+                             border-radius: 3px;   \
                              border-color: gray;   \
                              padding: 0px;          \
                          }  \
@@ -26,7 +28,16 @@ QWebGui::QWebGui(QWidget *parent)
                             font: 14px ; \
                             font-family: system-ui; \
                             height: 40px; \
-                        }");
+                        }"
+                        "QComboBox{ \
+                        background-color: rgb( 240, 240, 240 ); \
+                        border-style: inset;  \
+                        border-width: 3px;     \
+                        border-radius: 3px;   \
+                        border-color: rgb( 100, 100, 100 );   \
+                        padding: 0px;          \
+                        }               ");
+*/
     const QString btn_texts[kMainBtnCount] =
     {
         "Robot\nManagement", "Map\nManagement", "Path\nManagement", "Status\nMonitor"
@@ -42,8 +53,10 @@ QWebGui::QWebGui(QWidget *parent)
     QObject::connect( main_btns_[kRobotManage], SIGNAL(clicked()), this, SLOT(slotOnRobotManageClicked()));
     QObject::connect( main_btns_[kStatusMonitor], SIGNAL(clicked()), this, SLOT(slotOnStatusMonitorClicked()));
     QObject::connect( main_btns_[kMapManage], SIGNAL(clicked()), this, SLOT(slotOnMapManageClicked()));
+    QObject::connect( main_btns_[kPathManage], SIGNAL(clicked()), this, SLOT(slotOnPathManageClicked()));
 
     resize( 1366, 768 );
+    setMinimumSize( 1280, 720 );
 
     initWithSettingFile( DEFAULT_SETTING_FILE );
 }
@@ -72,12 +85,13 @@ void QWebGui::resizeEvent(QResizeEvent *event)
     }
 
     // ROBOT MANAGE VIEW
-    if( robot_manage_view_ && robot_manage_view_->isVisible() )
+    if( robot_manage_view_ )
         robot_manage_view_->setGeometry( 0, REMAIN_HEIFHT_FOR_VIEW, window_wdt, window_hgt-REMAIN_HEIFHT_FOR_VIEW*2 );
-    if( status_monitor_view_ && status_monitor_view_->isVisible() )
+    if( status_monitor_view_  )
         status_monitor_view_->setGeometry( 0, 0, window_wdt, window_hgt );
-    if( map_manage_view_ && map_manage_view_->isVisible() )
+    if( map_manage_view_  )
         map_manage_view_->setGeometry( 0, REMAIN_HEIFHT_FOR_VIEW, window_wdt, window_hgt-REMAIN_HEIFHT_FOR_VIEW*2 );
+
 
     QMainWindow::resizeEvent( event );
 }
@@ -87,6 +101,8 @@ QWebGui::~QWebGui()
 
 }
 
+
+// ***** Robot Management *****
 void QWebGui::slotOnRobotManageClicked()
 {
     if( !robot_manage_view_ )
@@ -109,29 +125,8 @@ void QWebGui::slotOnRobotManageReturned()
 
 }
 
-void QWebGui::slotOnStatusMonitorReturned()
-{
-    for( int i = 0; i < kMainBtnCount; ++i )
-        main_btns_[i]->setVisible(true);
-}
 
-void QWebGui::slotOnStatusMonitorClicked()
-{
-    if( !status_monitor_view_ )
-    {
-        status_monitor_view_ = new StatusMonitorView( &robots_, this);
-        status_monitor_view_->setGeometry( 0, 0, this->width(), this->height() );
-
-        connect( status_monitor_view_, SIGNAL(signalReturn()), this, SLOT(slotOnStatusMonitorReturned()));
-    }
-
-    updateRobotListFromSettings();
-
-    status_monitor_view_->show();
-    for( int i = 0; i < kMainBtnCount; ++i )
-        main_btns_[i]->setVisible(false);
-}
-
+// ***** Map Management *****
 void QWebGui::slotOnMapManageClicked()
 {
     if( !map_manage_view_ )
@@ -150,6 +145,51 @@ void QWebGui::slotOnMapManageReturned()
     for( int i = 0; i < kMainBtnCount; ++i )
         main_btns_[i]->setVisible(true);
 }
+
+
+// ***** State Monitor *****
+void QWebGui::slotOnStatusMonitorReturned()
+{
+    for( int i = 0; i < kMainBtnCount; ++i )
+        main_btns_[i]->setVisible(true);
+}
+
+void QWebGui::slotOnStatusMonitorClicked()
+{
+    if( !status_monitor_view_ )
+    {
+        status_monitor_view_ = new StatusMonitorView( &robots_, &map_setting_list_, this);
+        status_monitor_view_->setGeometry( 0, 0, this->width(), this->height() );
+
+        connect( status_monitor_view_, SIGNAL(signalReturn()), this, SLOT(slotOnStatusMonitorReturned()));
+    }
+
+    updateRobotListFromSettings();
+    status_monitor_view_->show();
+    for( int i = 0; i < kMainBtnCount; ++i )
+        main_btns_[i]->setVisible(false);
+}
+
+
+// ***** Path Management *****
+void QWebGui::slotOnPathManageClicked()
+{
+//    if( !path_manage_view_ )
+//    {
+//        path_manage_view_ = new PathManagementView( this );
+//        path_manage_view_->setGeometry( 0, 0, this->width(), this->height() );
+//    }
+//    path_manage_view_->show();
+//    for( int i = 0; i < kMainBtnCount; ++i )
+//        main_btns_[i]->setVisible(false);
+}
+
+void QWebGui::slotOnPathManageReturned()
+{
+    for( int i = 0; i < kMainBtnCount; ++i )
+        main_btns_[i]->setVisible(true);
+}
+
 
 void QWebGui::updateRobotListFromSettings()
 {

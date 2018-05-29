@@ -4,6 +4,7 @@
 #include <QFont>
 #include <QPushButton>
 #include <list>
+#include <QPainter>
 
 #define SYSTEM_UI_FONT_10   QFont("system-ui",10,QFont::Light)
 #define SYSTEM_UI_FONT_12   QFont("system-ui",12,QFont::Light)
@@ -40,6 +41,10 @@ struct MapSetting
         return name_ + "\n" + image_file_name_ + "\n" + image_setting_file_name_;
     }
 };
+
+void paintACoordSystem(QPainter *painter, QPoint& org );
+void PaintARobot(QPainter* painter, QPoint pos, double yaw, double factor);
+QPoint CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
 
 #ifdef Q_OS_LINUX
 // create a setting file in current directory

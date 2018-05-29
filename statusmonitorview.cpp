@@ -1,14 +1,19 @@
 #include "statusmonitorview.h"
 #include <QPainter>
 #include <QMouseEvent>
+#include <QWheelEvent>
 
-StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, QWidget *parent)
+StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSetting> *maps, QWidget *parent, MonitorMode mode)
     : QWidget(parent)
     , robots_(robots)
+    , maps_(maps)
     , has_map_( false )
     , got_first_origin_( false )
+    , factor_( 1.0 )
     , origin_()
     , origin_offset_()
+    , timer_update_robots_( startTimer(500) )
+    , mode_( mode )
 {
     QString operations_str[kOperationCount] = {"Robots", "Maps"};
     for( int i = 0; i < kOperationCount; ++i )
@@ -19,7 +24,8 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, QWidget *parent)
         operation_btns_[i]->setFocusPolicy( Qt::NoFocus );
         operation_btns_[i]->setCheckable( true );
     }
-    QObject::connect( operation_btns_[kSelectRobot], SIGNAL(clicked()), this, SLOT(slotOnSelectRobotBtnClicked()));
+    QObject::connect( operation_btns_[kSelectRobot], SIGNAL(toggled(bool)), this, SLOT(slotOnSelectRobotBtnClicked(bool)));
+    QObject::connect( operation_btns_[kSelectMap], SIGNAL(toggled(bool)), this, SLOT(slotOnSelectMapBtnClicked(bool)));
 
     robot_select_view_ = new RobotSelectView( robots_, this );
     robot_select_view_->setVisible( false );
@@ -32,6 +38,10 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, QWidget *parent)
     return_btn_->setPalette(pal);
     return_btn_->setFont( SYSTEM_UI_FONT_14_BOLD );
     QObject::connect( return_btn_, SIGNAL(clicked()), this, SLOT(slotOnReturnBtnClicked()));
+
+    map_select_box_ = new QComboBox( this );
+    map_select_box_->setVisible( false );
+    map_select_box_->setFont( SYSTEM_UI_FONT_10_BOLD );
 }
 
 void StatusMonitorView::resizeEvent(QResizeEvent *event)
@@ -56,6 +66,9 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     int32_t table_wdt = ( view_wdt * 0.35 ) ;
     table_wdt = table_wdt > 600 ? 600 : table_wdt;
     robot_select_view_->setGeometry( table_left, top_hgt, table_wdt, view_hgt - top_hgt * 2);
+
+    map_select_box_->setGeometry( table_left, (btn_hgt+gap_hgt) + top_hgt
+                                  , btn_wdt, btn_hgt );
 
     QWidget::resizeEvent( event );
 }
@@ -88,43 +101,69 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
     QWidget::mouseReleaseEvent( event );
 }
 
-void StatusMonitorView::paintACoordSystem(QPainter *painter, QPoint &org)
-{
-    const int length = 30;
-    if( org.x() < -length || org.y() < -length )
-        return;
-
-    QPoint left, right, top, btm;
-    left.setX( org.x() - length );
-    left.setY( org.y() );
-    right.setX( org.x()+ length);
-    right.setY( org.y());
-    top.setX( org.x() );
-    btm.setX( org.x() );
-    top.setY( org.y() - length );
-    btm.setY( org.y() + length );
-    QPen pen( Qt::green, 2, Qt::DashDotLine, Qt::RoundCap, Qt::RoundJoin );
-    painter->setPen(pen);
-    painter->drawLine(left, right);
-    painter->drawLine(top, btm);
-}
-
 void StatusMonitorView::paintEvent(QPaintEvent *event)
 {
     QPainter painter( this );
+    painter.setRenderHint(QPainter::Antialiasing, true);
     if( !has_map_ )
     {
-
         QPoint tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
         paintACoordSystem( &painter, tmp_origin );
+
+        QPen pen( Qt::white, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin );
+        painter.setPen(pen);
+
+        if( !robots_->empty() )
+        {
+            for( Robot& robot: *robots_ )
+                if( robot.connected_ )
+                {
+                    QPointF robot_pos_real( robot.state_.x, robot.state_.y );
+                    PaintARobot( &painter
+                                 , CalculateScreenPos( robot_pos_real, 0.05 , tmp_origin, factor_ )
+                                 , robot.state_.yaw
+                                 , factor_ );
+                }
+        }
     }
     else
     {
-
+        // has map file, show map image and all robotics run in the map
     }
 
-
     QWidget::paintEvent( event );
+}
+
+void StatusMonitorView::timerEvent(QTimerEvent *event)
+{
+    if( timer_update_robots_ == event->timerId() )
+    {
+        if( !robots_->empty() )
+        {
+            for( Robot& robot: *robots_ )
+                if( robot.connected_ )
+                {
+                    update();
+                    break;
+                }
+        }
+    }
+    else
+        QWidget::timerEvent( event );
+}
+
+void StatusMonitorView::wheelEvent(QWheelEvent *event)
+{
+    if(event->delta() > 0)
+    {
+        factor_ += 0.1;
+    }
+    else
+    {
+        if( factor_ >= 0.6)
+        factor_ -= 0.1;
+    }
+    update();
 }
 
 void StatusMonitorView::slotOnReturnBtnClicked()
@@ -133,8 +172,27 @@ void StatusMonitorView::slotOnReturnBtnClicked()
     emit signalReturn();
 }
 
-void StatusMonitorView::slotOnSelectRobotBtnClicked()
+void StatusMonitorView::slotOnSelectRobotBtnClicked(bool checked)
 {
-    robot_select_view_->setVisible( operation_btns_[kSelectRobot]->isChecked() );
+    if( checked && operation_btns_[kSelectMap]->isChecked())
+        operation_btns_[kSelectMap]->setChecked( false );
 
+    robot_select_view_->setVisible( checked );
+}
+
+void StatusMonitorView::slotOnSelectMapBtnClicked(bool checked)
+{
+    if( checked && operation_btns_[kSelectRobot]->isChecked() )
+        operation_btns_[kSelectRobot]->setChecked( false );
+
+    map_select_box_->setVisible( checked );
+    map_select_box_->clear();
+    QStringList map_names;
+    map_names.append( QString("Select Map...") );
+
+    if( !maps_->empty() )
+        for( MapSetting& setting : *maps_ )
+            map_names.append( setting.name_ );
+
+    map_select_box_->addItems( map_names );
 }
