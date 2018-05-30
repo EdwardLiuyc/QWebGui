@@ -54,6 +54,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     map_select_box_ = new QComboBox( this );
     map_select_box_->setVisible( false );
     map_select_box_->setFont( SYSTEM_UI_FONT_10_BOLD );
+    QObject::connect( map_select_box_, SIGNAL(currentIndexChanged(int)), this, SLOT(slotLoadMapImage(int)));
 
     robot_select_box_ = new QComboBox( this );
     robot_select_box_->setVisible( false );
@@ -149,7 +150,34 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
     }
     else
     {
+        painter.setBrush(QColor(127, 127, 127));
+        painter.drawRect(rect());
+
         // has map file, show map image and all robotics run in the map
+        QPixmap pixmap = QPixmap::fromImage( image_ );
+        // scale the image
+        QSize image_size = image_.size();
+        int32_t view_wth = this->width() - 2;
+        int32_t view_hgt = this->height() - 1;
+        int32_t image_wth = image_size.width();
+        int32_t image_hgt = image_size.height();
+        int32_t scaled_image_wth = image_wth;
+        int32_t scaled_image_hgt = image_hgt;
+
+        // the image is smaller than view
+//        double factor_x = (double)view_wth / (double)image_wth;
+//        double factor_y = (double)view_hgt / (double)image_hgt;
+//        factor_ = std::min( factor_x, factor_y );
+
+        scaled_image_wth *= factor_;
+//        scaled_image_wth = ( scaled_image_wth <= view_wth ? scaled_image_wth : view_wth );
+
+        scaled_image_hgt *= factor_;
+//        scaled_image_hgt = ( scaled_image_hgt <= view_hgt ? scaled_image_hgt : view_hgt );
+
+        QRect target( 0, 0, scaled_image_wth, scaled_image_hgt );
+        // draw the image
+        painter.drawPixmap(target, pixmap, image_.rect());
     }
 
     QWidget::paintEvent( event );
@@ -252,4 +280,51 @@ void StatusMonitorView::hideSwitchableWidgets()
 {
     for( int i = 0; i < kOperationCount; ++i )
         operation_btns_[i]->setChecked( false );
+}
+
+void StatusMonitorView::slotLoadMapImage( int index )
+{
+    if( index == 0 )
+        return;
+
+    QImageReader reader;
+    std::list<MapSetting>::iterator it = maps_->begin();
+    std::advance( it, index - 1);
+
+    if( local_map_.image_file_name_ == it->image_file_name_ )
+        return;
+
+    local_map_ = *it;
+    reader.setFileName( local_map_.image_file_name_ );
+    if( reader.canRead() )
+    {
+        qDebug() << "read image: " << local_map_.image_file_name_;
+        image_ = reader.read();
+        reader.setFormat("pgm");
+
+        QStringList keys = reader.textKeys();
+        QString strValue("");
+        foreach (QString strKey, keys)
+        {
+            strValue = reader.text(strKey).toLocal8Bit();
+            qDebug() << QString("key : %1  value : %2").arg(strKey).arg(strValue);
+        }
+
+        QSize image_size = image_.size();
+        int32_t view_wth = this->width() - 2;
+        int32_t view_hgt = this->height() - 1;
+        int32_t image_wth = image_size.width();
+        int32_t image_hgt = image_size.height();
+
+        // the image is smaller than view
+        double factor_x = (double)view_wth / (double)image_wth;
+        double factor_y = (double)view_hgt / (double)image_hgt;
+        factor_ = std::min( factor_x, factor_y );
+        has_map_ = true;
+    }
+    else
+    {
+        QString strError = reader.errorString();
+        qDebug() << "Read Error : " << strError;
+    }
 }

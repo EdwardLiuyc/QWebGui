@@ -8,6 +8,8 @@
 #include <QAbstractTableModel>
 #include <list>
 #include <QComboBox>
+#include <QImageReader>
+#include <QImage>
 #include "robotselectview.h"
 
 enum MonitorMode
@@ -57,6 +59,7 @@ public slots:
     void slotOnSelectRobotBtnClicked( bool checked );
     void slotOnSelectMapBtnClicked( bool checked );
     void slotOnSwitchBtnClicked();
+    void slotLoadMapImage( int index );
 
 private:
     // ** widgets **
@@ -70,6 +73,7 @@ private:
     // ** robot data **
     std::list<Robot>* robots_;
     std::list<MapSetting>* maps_;
+    MapSetting local_map_;
 
     // ** for paint **
     MonitorMode mode_;
@@ -80,6 +84,8 @@ private:
     QPoint origin_;
     Vector2i origin_offset_;
     Vector2i origin_offset_single_move_;
+
+    QImage image_;
 
     int32_t timer_update_robots_;
 };
