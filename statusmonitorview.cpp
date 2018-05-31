@@ -81,6 +81,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     robot_select_box_ = new QComboBox( this );
     robot_select_box_->setVisible( false );
     robot_select_box_->setFont( SYSTEM_UI_FONT_10_BOLD );
+    QObject::connect( robot_select_box_, SIGNAL(currentIndexChanged(int)), this, SLOT(slotOnRobotSelected(int)));
 }
 
 void StatusMonitorView::resizeEvent(QResizeEvent *event)
@@ -88,15 +89,17 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     int32_t view_wdt = this->width();
     int32_t view_hgt = this->height();
 
-    origin_.setX( view_wdt*0.5 );
-    origin_.setY( view_hgt*0.5 );
+    if( !has_map_ )
+    {
+        origin_.setX( view_wdt*0.5 );
+        origin_.setY( view_hgt*0.5 );
+    }
 
     int32_t btn_wdt = 140;
     int32_t btn_hgt = 40;
     int32_t gap_wdt = 20;
     int32_t gap_hgt = 10;
     const int top_hgt = 30;
-    const int btm_hgt = top_hgt;
     for( int i = 0; i < kOperationCount; ++i )
         operation_btns_[i]->setGeometry( gap_wdt, i*(btn_hgt+gap_hgt) + top_hgt, btn_wdt, btn_hgt );
 
@@ -221,6 +224,7 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
                              , factor_ );
             }
     }
+//    qDebug() << origin_;
 
     QWidget::paintEvent( event );
 }
@@ -316,7 +320,32 @@ void StatusMonitorView::slotOnSelectRobotBtnClicked(bool checked)
 
 void StatusMonitorView::slotOnRobotSelected(int index)
 {
+    if( index == 0 )
+    {
+        current_selected_robot_ = NULL;
+        return;
+    }
 
+    std::list<Robot>::iterator it = robots_->begin();
+    std::advance(it, index-1);
+    if(!current_selected_robot_)
+    {
+        current_selected_robot_ = &(*it);
+    }
+    else
+    {
+        if( current_selected_robot_->settings_.name_
+                == it->settings_.name_ )
+            return;
+        else
+        {
+            current_selected_robot_->disconnectSocket();
+            current_selected_robot_ = &(*it);
+        }
+    }
+    qDebug() << current_selected_robot_->settings_.name_;
+
+    current_selected_robot_->connectSocket();
 }
 
 void StatusMonitorView::slotOnSelectMapBtnClicked(bool checked)
@@ -389,6 +418,8 @@ void StatusMonitorView::slotLoadMapImage( int index )
     {
         qDebug() << "failed to load image info!";
     }
+
+    update();
 }
 
 int32_t StatusMonitorView::getImageInfoFromFile(MapImageInfo &info, const char *info_filename)
