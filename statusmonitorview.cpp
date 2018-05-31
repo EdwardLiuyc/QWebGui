@@ -150,30 +150,19 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
     }
     else
     {
-        painter.setBrush(QColor(127, 127, 127));
+        // paint background
+        QColor bg_color( image_.pixel( 0, 0 ) );
+        painter.setBrush(bg_color);
+        painter.setPen(Qt::NoPen);
         painter.drawRect(rect());
 
         // has map file, show map image and all robotics run in the map
         QPixmap pixmap = QPixmap::fromImage( image_ );
         // scale the image
         QSize image_size = image_.size();
-        int32_t view_wth = this->width() - 2;
-        int32_t view_hgt = this->height() - 1;
-        int32_t image_wth = image_size.width();
-        int32_t image_hgt = image_size.height();
-        int32_t scaled_image_wth = image_wth;
-        int32_t scaled_image_hgt = image_hgt;
 
-        // the image is smaller than view
-//        double factor_x = (double)view_wth / (double)image_wth;
-//        double factor_y = (double)view_hgt / (double)image_hgt;
-//        factor_ = std::min( factor_x, factor_y );
-
-        scaled_image_wth *= factor_;
-//        scaled_image_wth = ( scaled_image_wth <= view_wth ? scaled_image_wth : view_wth );
-
-        scaled_image_hgt *= factor_;
-//        scaled_image_hgt = ( scaled_image_hgt <= view_hgt ? scaled_image_hgt : view_hgt );
+        int32_t scaled_image_wth = image_size.width() * factor_;
+        int32_t scaled_image_hgt = image_size.height() * factor_;
 
         QRect target( 0, 0, scaled_image_wth, scaled_image_hgt );
         // draw the image
