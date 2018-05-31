@@ -84,6 +84,7 @@ void QWebGui::slotOnRobotManageClicked()
         robot_manage_view_->setGeometry( 0, REMAIN_HEIFHT_FOR_VIEW, this->width(), this->height()-REMAIN_HEIFHT_FOR_VIEW*2 );
 
         connect( robot_manage_view_, SIGNAL(signalReturn()), this, SLOT(slotOnRobotManageReturned()));
+        connect( robot_manage_view_, SIGNAL(signalSaveSetting()), this, SLOT(slotOnSaveSetting()));
     }
 
     robot_manage_view_->show();
@@ -107,6 +108,7 @@ void QWebGui::slotOnMapManageClicked()
         map_manage_view_ = new MapManagementView( &map_setting_list_, this );
         map_manage_view_->setGeometry( 0, REMAIN_HEIFHT_FOR_VIEW, this->width(), this->height()-REMAIN_HEIFHT_FOR_VIEW*2 );
         connect( map_manage_view_, SIGNAL(signalReturn()), this, SLOT(slotOnMapManageReturned()));
+        connect( map_manage_view_, SIGNAL(signalSaveSetting()), this, SLOT(slotOnSaveSetting()));
     }
     map_manage_view_->show();
     for( int i = 0; i < kMainBtnCount; ++i )
@@ -236,15 +238,59 @@ int32_t QWebGui::initWithSettingFile(const char *filename)
          setting_node;
          setting_node = setting_node.next_sibling() )
     {
-        if( strstr(setting_node.name(), "robot_setting" ) == NULL )
-            continue;
-
-        RobotSettings setting;
-        setting.name_ = setting_node.attribute("name").as_string();
-        setting.ip_ = setting_node.attribute("ip").as_string();
-        setting.port_ = setting_node.attribute("port").as_int();
-        robot_setting_list_.push_back(setting);
+        if( strstr(setting_node.name(), "robot_setting" ) )
+        {
+            RobotSettings setting;
+            setting.name_ = setting_node.attribute("name").as_string();
+            setting.ip_ = setting_node.attribute("ip").as_string();
+            setting.port_ = setting_node.attribute("port").as_int();
+            robot_setting_list_.push_back(setting);
+        }
+        else if( strstr(setting_node.name(), "map_setting" ) )
+        {
+            MapSetting setting;
+            setting.name_ = setting_node.attribute("name").as_string();
+            setting.image_file_name_ = setting_node.attribute("image_file").as_string();
+            setting.image_info_file_name_ = setting_node.attribute("image_config_file").as_string();
+            map_setting_list_.push_back( setting );
+        }
     }
 
+    return 0;
+}
+
+void QWebGui::slotOnSaveSetting()
+{
+    saveSettingFile( DEFAULT_SETTING_FILE );
+}
+
+int32_t QWebGui::saveSettingFile(const char *filename)
+{
+    if(!filename)
+        return -1;
+
+    pugi::xml_document doc;
+    pugi::xml_node pre = doc.prepend_child(pugi::node_declaration);
+    pre.append_attribute("version") = "1.0";
+    pre.append_attribute("encoding") = "utf-8";
+
+    pugi::xml_node root_node = doc.append_child("BONGOS_QWEBGUI");
+    for( RobotSettings& setting : robot_setting_list_ )
+    {
+        pugi::xml_node setting_node = root_node.append_child("robot_setting");
+        setting_node.append_attribute("name").set_value( setting.name_.toStdString().c_str() );
+        setting_node.append_attribute("ip").set_value( setting.ip_.toStdString().c_str());
+        setting_node.append_attribute("port").set_value( setting.port_ );
+    }
+
+    for( MapSetting& setting : map_setting_list_ )
+    {
+        pugi::xml_node setting_node = root_node.append_child("map_setting");
+        setting_node.append_attribute("name").set_value( setting.name_.toStdString().c_str() );
+        setting_node.append_attribute("image_file").set_value( setting.image_file_name_.toStdString().c_str());
+        setting_node.append_attribute("image_config_file").set_value( setting.image_info_file_name_.toStdString().c_str() );
+    }
+
+    doc.save_file( filename, "\t", 1U, pugi::encoding_utf8);
     return 0;
 }

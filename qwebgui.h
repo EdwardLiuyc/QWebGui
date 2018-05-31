@@ -40,11 +40,14 @@ public slots:
     void slotOnStatusMonitorClicked();
     void slotOnStatusMonitorReturned();
 
+    void slotOnSaveSetting();
+
 protected:
     void resizeEvent(QResizeEvent* event);
     void updateRobotListFromSettings();
 
-    int32_t initWithSettingFile(const char* filename);
+    int32_t initWithSettingFile( const char* filename );
+    int32_t saveSettingFile( const char* filename );
 
 private:
     QPushButton* main_btns_[kMainBtnCount];

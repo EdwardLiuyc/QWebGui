@@ -11,13 +11,20 @@ BrowserLineEdit::BrowserLineEdit(QWidget* parent, bool with_button)
     browser_btn_->setText("...");
     connect(browser_btn_, SIGNAL(clicked()), this, SLOT(slotOnBtnClicked()));
     if( !with_button )
+    {
         browser_btn_->hide();
+        this->setReadOnly( false );
+    }
+    else
+    {
+        this->setReadOnly( true );
+    }
 }
 
 void BrowserLineEdit::resizeEvent(QResizeEvent *event)
 {
     int32_t edit_wth = this->width();
-    int32_t btn_wdt = 20;
+    int32_t btn_wdt = 30;
     int32_t btn_left = edit_wth - btn_wdt;
     if( btn_left < 0 )
     {
@@ -109,7 +116,7 @@ void AddMapSettingDlg::slotOkBtnClicked()
 {
     map_setting_.name_ = browser_edit_[kName]->text();
     map_setting_.image_file_name_ = browser_edit_[kImageFilePath]->text();
-    map_setting_.image_setting_file_name_ = browser_edit_[kImageSettingFilePath]->text();
+    map_setting_.image_info_file_name_ = browser_edit_[kImageSettingFilePath]->text();
     if( checkSetting() < 0 )
     {
         qDebug() << "not good setting!";
@@ -138,7 +145,7 @@ int32_t AddMapSettingDlg::checkSetting()
 {
     if( map_setting_.name_.isEmpty()
             || map_setting_.image_file_name_.isEmpty()
-            || map_setting_.image_setting_file_name_.isEmpty() )
+            || map_setting_.image_info_file_name_.isEmpty() )
         return -1;
 
     return 0;

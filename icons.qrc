@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/images">
+        <file>icons/confirm.png</file>
+        <file>icons/loop.png</file>
+        <file>icons/reverse.png</file>
+    </qresource>
+</RCC>

@@ -16,7 +16,7 @@ public:
     explicit MapManagementView( std::list<MapSetting>* list, QWidget *parent = 0 );
     enum Operations
     {
-        kAdd, kModify, kDelete, kOperationCount
+        kAdd, kModify, kDelete, kSave, kOperationCount
     };
     enum MapTableContect
     {
@@ -28,11 +28,13 @@ protected:
 
 signals:
     void signalReturn();
+    void signalSaveSetting();
 
 public slots:
     void slotOnReturnBtnClicked();
     void slotOnAddBtnClicked();
     void slotOnModifyBtnClicked();
+    void slotOnSaveBtnClicked();
 
 private:
     QPushButton* operation_btns_[kOperationCount];

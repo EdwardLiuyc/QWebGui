@@ -34,17 +34,30 @@ struct MapSetting
 {
     QString name_;
     QString image_file_name_;
-    QString image_setting_file_name_;
+    QString image_info_file_name_;
 
     QString DebugString()
     {
-        return name_ + "\n" + image_file_name_ + "\n" + image_setting_file_name_;
+        return name_ + "\n" + image_file_name_ + "\n" + image_info_file_name_;
+    }
+};
+
+struct MapImageInfo
+{
+    QPoint origin_;
+    double resolution_;
+    QString unit_;
+
+    QString DebugString()
+    {
+        return "origin: " + QString::number( origin_.x() ) + " : " + QString::number( origin_.y() )
+                + " resulotion: " + QString::number( resolution_, 'd', 6 ) + unit_;
     }
 };
 
 void paintACoordSystem(QPainter *painter, QPoint& org );
-void PaintARobot(QPainter* painter, QPoint pos, double yaw, double factor);
-QPoint CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
+void PaintARobot(QPainter* painter, QPointF pos, double yaw, double factor);
+QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
 
 #ifdef Q_OS_LINUX
 // create a setting file in current directory

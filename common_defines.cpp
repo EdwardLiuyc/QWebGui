@@ -21,7 +21,7 @@ void paintACoordSystem(QPainter *painter, QPoint &org)
     painter->drawLine(top, btm);
 }
 
-void PaintARobot(QPainter *painter, QPoint pos, double yaw, double factor)
+void PaintARobot(QPainter *painter, QPointF pos, double yaw, double factor)
 {
     if( !painter || factor < 1.0e-6 || pos.x() < 0 || pos.y() < 0)
         return;
@@ -30,7 +30,7 @@ void PaintARobot(QPainter *painter, QPoint pos, double yaw, double factor)
     const int tail_lth = 12;
 
     factor = 1.0; // set robot static
-    QPoint header, left, right;
+    QPointF header, left, right;
     header.setX( pos.x() + header_lth*cos(yaw) * factor);
     header.setY( pos.y() - header_lth*sin(yaw) * factor);   // in screen, the coord system is different, so "-"
     double left_angle = yaw+2.356;
@@ -46,8 +46,8 @@ void PaintARobot(QPainter *painter, QPoint pos, double yaw, double factor)
     painter->drawLine(right, header);
 }
 
-QPoint CalculateScreenPos(QPointF robot_pos, double resolution, QPoint origin, double factor )
+QPointF CalculateScreenPos(QPointF robot_pos, double resolution, QPoint origin, double factor )
 {
-    return QPoint( origin.x() + robot_pos.x() / resolution * factor
+    return QPointF( origin.x() + robot_pos.x() / resolution * factor
                    , origin.y() - robot_pos.y() / resolution * factor );
 }

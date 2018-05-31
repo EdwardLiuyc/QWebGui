@@ -8,7 +8,7 @@ MapManagementView::MapManagementView(std::list<MapSetting> *list, QWidget *paren
     , map_setting_dlg_( NULL )
     , map_setting_list_( list )
 {
-    QString operation_str[kOperationCount] = {"Add", "Modify","Delete"};
+    QString operation_str[kOperationCount] = {"Add", "Modify","Delete","Save To File"};
     for( int i = 0; i < kOperationCount; ++i )
     {
         operation_btns_[i] = new QPushButton(this);
@@ -17,6 +17,7 @@ MapManagementView::MapManagementView(std::list<MapSetting> *list, QWidget *paren
         operation_btns_[i]->setFocusPolicy(Qt::NoFocus);
     }
     QObject::connect( operation_btns_[kAdd], SIGNAL(clicked()), this, SLOT(slotOnAddBtnClicked()));
+    QObject::connect( operation_btns_[kSave], SIGNAL(clicked()), this, SLOT(slotOnSaveBtnClicked()));
 
     map_setting_table_ = new QTableView( this );
     map_table_model_ = new MapTableModel( map_setting_table_ );
@@ -44,6 +45,11 @@ void MapManagementView::slotOnModifyBtnClicked()
 
 }
 
+void MapManagementView::slotOnSaveBtnClicked()
+{
+    emit signalSaveSetting();
+}
+
 void MapManagementView::resizeEvent(QResizeEvent *event)
 {
     int32_t view_wdt = this->width();
@@ -54,8 +60,8 @@ void MapManagementView::resizeEvent(QResizeEvent *event)
     int32_t gap_wdt = 20;
     int32_t gap_hgt = 10;
     int32_t table_wdt = view_wdt - btn_wdt - gap_wdt ;
-    if( table_wdt > 700 )
-        table_wdt = 700;
+    if( table_wdt > 800 )
+        table_wdt = 800;
 
     int32_t table_left = ( view_wdt - gap_wdt - table_wdt - btn_wdt ) / 2;
     map_setting_table_->setGeometry( table_left, 0, table_wdt, view_hgt);
@@ -146,7 +152,7 @@ QVariant MapTableModel::data(const QModelIndex &index, int role) const
         else if( col == MapManagementView::kImagePath )
             return it->image_file_name_;
         else if( col == MapManagementView::kImageSettingPath )
-            return it->image_setting_file_name_;
+            return it->image_info_file_name_;
         return "";
     }
     default:

@@ -51,8 +51,8 @@ void RobotManagementView::resizeEvent(QResizeEvent *event)
     int32_t gap_wdt = 20;
     int32_t gap_hgt = 10;
     int32_t table_wdt = view_wdt - btn_wdt - gap_wdt ;
-    if( table_wdt > 500 )
-        table_wdt = 500;
+    if( table_wdt > 800 )
+        table_wdt = 800;
 
     int32_t table_left = ( view_wdt - gap_wdt - table_wdt - btn_wdt ) / 2;
     robot_setting_table_->setGeometry( table_left, 0, table_wdt, view_hgt);
@@ -69,29 +69,6 @@ void RobotManagementView::resizeEvent(QResizeEvent *event)
     QWidget::resizeEvent( event );
 }
 
-int32_t RobotManagementView::SaveToSettingFile(const char *filename)
-{
-    if(!filename)
-        return -1;
-
-    pugi::xml_document doc;
-    pugi::xml_node pre = doc.prepend_child(pugi::node_declaration);
-    pre.append_attribute("version") = "1.0";
-    pre.append_attribute("encoding") = "utf-8";
-
-    pugi::xml_node root_node = doc.append_child("BONGOS_QWEBGUI");
-    for( RobotSettings& setting : *robot_setting_list_ )
-    {
-        pugi::xml_node setting_node = root_node.append_child("robot_setting");
-        setting_node.append_attribute("name").set_value( setting.name_.toStdString().c_str() );
-        setting_node.append_attribute("ip").set_value( setting.ip_.toStdString().c_str());
-        setting_node.append_attribute("port").set_value( setting.port_ );
-    }
-
-    doc.save_file( filename, "\t", 1U, pugi::encoding_utf8);
-    return 0;
-}
-
 void RobotManagementView::slotOnReturnBtnClicked()
 {
     this->hide();
@@ -100,7 +77,7 @@ void RobotManagementView::slotOnReturnBtnClicked()
 
 void RobotManagementView::slotOnSaveBtnClicked()
 {
-    SaveToSettingFile( DEFAULT_SETTING_FILE );
+    emit signalSaveSetting();
 }
 
 Qt::ItemFlags SettingTableModel::flags(const QModelIndex &index) const

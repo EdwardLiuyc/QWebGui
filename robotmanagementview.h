@@ -38,6 +38,7 @@ protected:
 
 signals:
     void signalReturn();
+    void signalSaveSetting();
 
 public slots:
     void slotOnReturnBtnClicked();

@@ -35,9 +35,24 @@ public:
         kOperationCount,
     };
 
+    enum PathMngOperation
+    {
+        kGetPoint,
+        kSetReverseMode,
+        kSetLoopMode,
+        kPathMngOperationCount
+    };
+
+    enum PathMngMode
+    {
+        kOldMode,
+        kSendAfterSaveAll,
+        kPathMngModeCount
+    };
+
     using Vector2i = QPoint;
 
-    inline void setMode( MonitorMode mode ){ mode_ = mode; }
+    inline void setMode( MonitorMode mode ){ monitor_mode_ = mode; }
 
 protected:
     void resizeEvent(QResizeEvent* event);
@@ -50,6 +65,8 @@ protected:
 
     void hideSwitchableWidgets();
 
+    int32_t getImageInfoFromFile( MapImageInfo& info, const char* info_filename );
+
 signals:
     void signalReturn();
 
@@ -60,10 +77,12 @@ public slots:
     void slotOnSelectMapBtnClicked( bool checked );
     void slotOnSwitchBtnClicked();
     void slotLoadMapImage( int index );
+    void slotOnRobotSelected( int index );
 
 private:
     // ** widgets **
     QPushButton* operation_btns_[kOperationCount];
+    QPushButton* path_mng_btns_[kPathMngOperationCount];
     QPushButton* return_btn_;
     QPushButton* switch_btn_;
     RobotSelectView* robot_select_view_;
@@ -74,18 +93,22 @@ private:
     std::list<Robot>* robots_;
     std::list<MapSetting>* maps_;
     MapSetting local_map_;
+    Robot* current_selected_robot_;
 
     // ** for paint **
-    MonitorMode mode_;
+    MonitorMode monitor_mode_;
+    PathMngMode path_manage_mode_;
     bool has_map_;
     bool got_first_origin_;
     double factor_;
+    double min_factor_;
     QPoint start_pos_;
     QPoint origin_;
     Vector2i origin_offset_;
     Vector2i origin_offset_single_move_;
 
     QImage image_;
+    MapImageInfo map_image_info_;
 
     int32_t timer_update_robots_;
 };

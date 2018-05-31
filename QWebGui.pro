@@ -82,3 +82,6 @@ HEADERS  += qwebgui.h \
     rapidjson/include/rapidjson/writer.h \
     mapmanagementview.h \
     addmapsettingdlg.h
+
+RESOURCES += \
+    icons.qrc
