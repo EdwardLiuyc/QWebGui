@@ -3,5 +3,9 @@
         <file>icons/confirm.png</file>
         <file>icons/loop.png</file>
         <file>icons/reverse.png</file>
+        <file>icons/unchecked.svg</file>
+        <file>icons/checked.svg</file>
+        <file>icons/square_checked.svg</file>
+        <file>icons/square_unchecked.svg</file>
     </qresource>
 </RCC>

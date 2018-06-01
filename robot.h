@@ -35,11 +35,23 @@ public:
     void connectSocket();
     void disconnectSocket();
 
+    // commands
+    void sendCommand_AddPoint(double stop_time = 0., AddPointType type = kNormal);
+    void sendCommand_AddPoint(double x, double y, double yaw, double stop_time = 0., AddPointType type = kNormal);
+    void sendCommand_SetReverseMode();
+    void sendCommand_SetLoopMode();
+    void sendCommand_Run();
+    void sendCommand_Halt();
+    void sendCommand_SetRunningMode( RobotRunningMode mode );
+
     bool selected_for_connect_;
     bool connected_;
     RobotSettings settings_;
     RobotState state_;
 
+protected:
+    void sendCommand( int32_t id, QString cmd, double* array, int32_t size );
+    void sendCommand( int32_t id, QString cmd, int32_t value );
 
 signals:
 

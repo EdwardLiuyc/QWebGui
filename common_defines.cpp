@@ -51,3 +51,13 @@ QPointF CalculateScreenPos(QPointF robot_pos, double resolution, QPoint origin, 
     return QPointF( origin.x() + robot_pos.x() / resolution * factor
                    , origin.y() - robot_pos.y() / resolution * factor );
 }
+
+void PaintADot(QPainter* painter, QPointF &pos )
+{
+    if( !painter || pos.x() < 0 || pos.y() < 0 )
+        return;
+
+    const int radius = 3;
+    painter->setBrush( QBrush(QColor(Qt::red)));
+    painter->drawEllipse( pos, radius, radius );
+}

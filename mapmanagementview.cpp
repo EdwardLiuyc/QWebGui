@@ -23,6 +23,7 @@ MapManagementView::MapManagementView(std::list<MapSetting> *list, QWidget *paren
     map_table_model_ = new MapTableModel( map_setting_table_ );
     map_table_model_->setMapData( map_setting_list_ );
     map_setting_table_->setModel( map_table_model_ );
+    map_setting_table_->setFont(QFont("SIMHEI",10,QFont::Bold));
     map_setting_table_->horizontalHeader()->setSectionResizeMode( MapManagementView::kName ,QHeaderView::Stretch);
 
     return_btn_ = new QPushButton(this);
@@ -150,9 +151,17 @@ QVariant MapTableModel::data(const QModelIndex &index, int role) const
         if( col == MapManagementView::kName )
             return it->name_;
         else if( col == MapManagementView::kImagePath )
-            return it->image_file_name_;
+        {
+            QString filename = it->image_file_name_;
+            int32_t index = filename.lastIndexOf("/");
+            return filename.mid( index + 1 );
+        }
         else if( col == MapManagementView::kImageSettingPath )
-            return it->image_info_file_name_;
+        {
+            QString info_filename = it->image_info_file_name_;
+            int32_t index = info_filename.lastIndexOf("/");
+            return info_filename.mid( index + 1 );
+        }
         return "";
     }
     default:

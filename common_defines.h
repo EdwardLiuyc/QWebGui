@@ -55,8 +55,29 @@ struct MapImageInfo
     }
 };
 
+enum PathMngMode
+{
+    kOldMode,
+    kSendAfterSaveAll,
+    kPathMngModeCount
+};
+
+enum AddPointType
+{
+    kNormal = 1,
+    kRecover = 3,
+    kCharge = 4
+};
+
+enum RobotRunningMode
+{
+    kManual = 0,
+    kAuto = 1
+};
+
 void paintACoordSystem(QPainter *painter, QPoint& org );
 void PaintARobot(QPainter* painter, QPointF pos, double yaw, double factor);
+void PaintADot(QPainter* painter, QPointF& pos );
 QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
 
 #ifdef Q_OS_LINUX

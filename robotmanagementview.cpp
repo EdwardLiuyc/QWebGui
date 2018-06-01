@@ -28,7 +28,7 @@ RobotManagementView::RobotManagementView(std::list<RobotSettings> *list, QWidget
     {
         operation_btns_[i] = new QPushButton(this);
         operation_btns_[i]->setText( operations_str[i] );
-        operation_btns_[i]->setFont( SYSTEM_UI_FONT_12_BOLD );
+        operation_btns_[i]->setFont( SYSTEM_UI_FONT_10_BOLD );
     }
     QObject::connect(operation_btns_[kSave], SIGNAL(clicked()), this, SLOT(slotOnSaveBtnClicked()));
 

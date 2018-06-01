@@ -10,6 +10,7 @@
 #include <QComboBox>
 #include <QImageReader>
 #include <QImage>
+#include <QCheckBox>
 #include "robotselectview.h"
 
 enum MonitorMode
@@ -19,6 +20,8 @@ enum MonitorMode
     kMonitorModeCount
 };
 
+using Vector2i = QPoint;
+using Vector2F = QPointF;
 class Robot;
 class StatusMonitorView : public QWidget
 {
@@ -32,25 +35,24 @@ public:
     {
         kSelectRobot,
         kSelectMap,
+        kChangeRunningMode,
+        kRunOrHalt,
+        kChangeAddPointMode,
         kOperationCount,
     };
 
     enum PathMngOperation
     {
-        kGetPoint,
+        kAddPoint,
         kSetReverseMode,
         kSetLoopMode,
         kPathMngOperationCount
     };
 
-    enum PathMngMode
+    enum AddPointMode
     {
-        kOldMode,
-        kSendAfterSaveAll,
-        kPathMngModeCount
+        kInRobot, kInUI
     };
-
-    using Vector2i = QPoint;
 
     inline void setMode( MonitorMode mode ){ monitor_mode_ = mode; }
 
@@ -62,6 +64,8 @@ protected:
     void mouseMoveEvent(QMouseEvent* event);
     void wheelEvent(QWheelEvent* event);
     void timerEvent(QTimerEvent* event);
+    void keyPressEvent(QKeyEvent* event);
+    void keyReleaseEvent(QKeyEvent *event);
 
     void hideSwitchableWidgets();
 
@@ -75,9 +79,16 @@ public slots:
 
     void slotOnSelectRobotBtnClicked( bool checked );
     void slotOnSelectMapBtnClicked( bool checked );
+    void slotOnChangeRunningModeClicked( bool checked );
+    void slotOnRunOrHaltBtnClicked( bool checked );
+    void slotOnChangeAddPointModeClicked( bool checked );
     void slotOnSwitchBtnClicked();
     void slotLoadMapImage( int index );
     void slotOnRobotSelected( int index );
+
+    void slotOnAddPoint();
+    void slotOnSetReverseMode();
+    void slotOnSetLoopMode();
 
 private:
     // ** widgets **
@@ -98,10 +109,14 @@ private:
     // ** for paint **
     MonitorMode monitor_mode_;
     PathMngMode path_manage_mode_;
+    AddPointMode add_point_mode_ = kInRobot;
+    RobotRunningMode robot_running_mode_ = RobotRunningMode::kManual;
+    QPointF set_point_in_ui_;
     bool has_map_;
     bool got_first_origin_;
     double factor_;
     double min_factor_;
+    double resolution_;
     QPoint start_pos_;
     QPoint origin_;
     Vector2i origin_offset_;
@@ -111,6 +126,17 @@ private:
     MapImageInfo map_image_info_;
 
     int32_t timer_update_robots_;
+    int32_t timer_manual_operating_;
+
+    // for manual
+    enum DirKey
+    {
+        kUp, kDown, kLeft, kRight, kKeyCount
+    };
+    bool key_pressed_[DirKey::kKeyCount];
+    double manual_strength_     = 0.;
+    double manual_angle_        = 1.57;
+    Vector2F manual_vec_;
 };
 
 #endif // STATUSMONITORVIEW_H

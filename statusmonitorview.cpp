@@ -19,21 +19,26 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     , got_first_origin_( false )
     , factor_( 1.0 )
     , min_factor_( 0.5 )
+    , resolution_( 0.05 )
     , origin_()
     , origin_offset_()
     , timer_update_robots_( startTimer(500) )
+    , timer_manual_operating_( startTimer(500) )
 {
-    QString operations_str[kOperationCount] = {"Robots", "Maps"};
+    QString operations_str[kOperationCount] = {"Robots", "Maps", "Manual", "Halt", "Add In Robot"};
     for( int i = 0; i < kOperationCount; ++i )
     {
         operation_btns_[i] = new QPushButton(this);
         operation_btns_[i]->setText( operations_str[i] );
-        operation_btns_[i]->setFont( SYSTEM_UI_FONT_12_BOLD );
+        operation_btns_[i]->setFont( SYSTEM_UI_FONT_10_BOLD );
         operation_btns_[i]->setFocusPolicy( Qt::NoFocus );
         operation_btns_[i]->setCheckable( true );
     }
     QObject::connect( operation_btns_[kSelectRobot], SIGNAL(toggled(bool)), this, SLOT(slotOnSelectRobotBtnClicked(bool)));
     QObject::connect( operation_btns_[kSelectMap], SIGNAL(toggled(bool)), this, SLOT(slotOnSelectMapBtnClicked(bool)));
+    QObject::connect( operation_btns_[kChangeRunningMode], SIGNAL(toggled(bool)), this, SLOT(slotOnChangeRunningModeClicked(bool)));
+    QObject::connect( operation_btns_[kRunOrHalt], SIGNAL(toggled(bool)), this, SLOT(slotOnRunOrHaltBtnClicked(bool)));
+    QObject::connect( operation_btns_[kChangeAddPointMode], SIGNAL(toggled(bool)), this, SLOT(slotOnChangeAddPointModeClicked(bool)));
 
     QString image_paths[kPathMngOperationCount] =
     {
@@ -51,9 +56,13 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
         QString style = "border: none;";
         path_mng_btns_[i]->setStyleSheet(style);
     }
+    QObject::connect( path_mng_btns_[kAddPoint], SIGNAL(clicked()), this, SLOT(slotOnAddPoint()));
+    QObject::connect( path_mng_btns_[kSetReverseMode], SIGNAL(clicked()), this, SLOT(slotOnSetReverseMode()));
+    QObject::connect( path_mng_btns_[kSetLoopMode], SIGNAL(clicked()), this, SLOT(slotOnSetLoopMode()));
 
     robot_select_view_ = new RobotSelectView( robots_, this );
     robot_select_view_->setVisible( false );
+    robot_select_view_->setFocusPolicy( Qt::NoFocus );
 
     // ** return button **
     return_btn_ = new QPushButton(this);
@@ -64,24 +73,30 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
 
     // ** switch button **
     switch_btn_ = new QPushButton( this );
+    switch_btn_->setFocusPolicy( Qt::NoFocus );
     if( monitor_mode_ == MonitorMode::kStatusMonitorMode )
         switch_btn_->setText(SWITCH_TO_PATHMANAGER);
     else
         switch_btn_->setText(SWITCH_TO_MONITOR);
-
-    switch_btn_->setFocusPolicy( Qt::NoFocus );
     switch_btn_->setFont( SYSTEM_UI_FONT_14_BOLD );
     QObject::connect( switch_btn_, SIGNAL(clicked()), this, SLOT(slotOnSwitchBtnClicked()));
 
     map_select_box_ = new QComboBox( this );
+    map_select_box_->setFocusPolicy( Qt::NoFocus );
     map_select_box_->setVisible( false );
     map_select_box_->setFont( SYSTEM_UI_FONT_10_BOLD );
     QObject::connect( map_select_box_, SIGNAL(currentIndexChanged(int)), this, SLOT(slotLoadMapImage(int)));
 
     robot_select_box_ = new QComboBox( this );
+    robot_select_box_->setFocusPolicy( Qt::NoFocus );
     robot_select_box_->setVisible( false );
     robot_select_box_->setFont( SYSTEM_UI_FONT_10_BOLD );
     QObject::connect( robot_select_box_, SIGNAL(currentIndexChanged(int)), this, SLOT(slotOnRobotSelected(int)));
+
+    for( int i = 0; i < DirKey::kKeyCount; ++i )
+        key_pressed_[i] = false;
+
+    this->setFocus();
 }
 
 void StatusMonitorView::resizeEvent(QResizeEvent *event)
@@ -137,15 +152,23 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
 
 void StatusMonitorView::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton)
+    if (event->button() == Qt::RightButton)
         start_pos_ = event->pos();
+    else if( event->button() == Qt::LeftButton )
+    {
+        if( add_point_mode_ == kInUI && has_map_ )
+        {
+            set_point_in_ui_ = event->pos();
+            update();
+        }
+    }
 
     QWidget::mousePressEvent(event);
 }
 
 void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
 {
-    if( event->buttons() & Qt::LeftButton )
+    if( event->buttons() & Qt::RightButton )
     {
         origin_offset_single_move_ =  event->pos() - start_pos_;
         update();
@@ -168,7 +191,6 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
     QPainter painter( this );
     painter.setRenderHint(QPainter::Antialiasing, true);
     QPoint tmp_origin;
-    double resolution = 0.5;
     if( !has_map_ )
     {
         tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
@@ -205,7 +227,10 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
         tmp_origin = origin_;
 
         // resolution
-        resolution = map_image_info_.resolution_;
+        resolution_ = map_image_info_.resolution_;
+
+        if( add_point_mode_ == kInUI )
+            PaintADot( &painter, set_point_in_ui_ );
     }
 
     paintACoordSystem( &painter, tmp_origin );
@@ -219,7 +244,7 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
             {
                 QPointF robot_pos_real( robot.state_.x, robot.state_.y );
                 PaintARobot( &painter
-                             , CalculateScreenPos( robot_pos_real, resolution , tmp_origin, factor_ )
+                             , CalculateScreenPos( robot_pos_real, resolution_ , tmp_origin, factor_ )
                              , robot.state_.yaw
                              , factor_ );
             }
@@ -243,8 +268,55 @@ void StatusMonitorView::timerEvent(QTimerEvent *event)
                 }
         }
     }
-    else
-        QWidget::timerEvent( event );
+    else if( timer_manual_operating_ != 0 && timer_manual_operating_ == event->timerId() )
+    {
+        bool need_add_strength = false;
+        for( int i = 0; i < DirKey::kKeyCount; ++i )
+        {
+            if( key_pressed_[i] )
+            {
+                need_add_strength = true;
+                break;
+            }
+        }
+
+        // avoid to press up&down | left&right
+        if( ( key_pressed_[kUp] && key_pressed_[kDown] )
+                || ( key_pressed_[DirKey::kLeft] && key_pressed_[DirKey::kRight])
+                || !need_add_strength )
+        {
+            manual_strength_ = 0.;
+            manual_angle_ = 1.57;
+            manual_vec_ = Vector2F( 0., 0. );
+        }
+        else
+        {
+            const double delta = 0.25;
+            // grow a vector!
+            Vector2F delta_vec[kKeyCount] =
+            {
+                Vector2F( 0, delta ),
+                Vector2F( 0, -delta),
+                Vector2F( delta, 0 ),
+                Vector2F( -delta, 0)
+            };
+
+            if( key_pressed_[kUp] )
+            {
+                if( manual_vec_.y() < 0. )
+                    manual_vec_.setY( delta );
+                else if( manual_vec_.y() >= 1.)
+                    manual_vec_.setY( 1. );
+                else
+                    manual_vec_ += delta_vec[kUp];
+            }
+        }
+
+        qDebug() << manual_vec_;
+
+        //
+    }
+    QWidget::timerEvent( event );
 }
 
 void StatusMonitorView::wheelEvent(QWheelEvent *event)
@@ -274,6 +346,59 @@ void StatusMonitorView::wheelEvent(QWheelEvent *event)
     update();
 }
 
+void StatusMonitorView::keyPressEvent(QKeyEvent *event)
+{
+    if( robot_running_mode_ == RobotRunningMode::kManual )
+    {
+        switch( event->key() )
+        {
+        case Qt::Key_Up:
+            key_pressed_[DirKey::kUp] = true;
+            break;
+        case Qt::Key_Down:
+            key_pressed_[DirKey::kDown] = true;
+            break;
+        case Qt::Key_Left:
+            key_pressed_[DirKey::kLeft] = true;
+            break;
+        case Qt::Key_Right:
+            key_pressed_[DirKey::kRight] = true;
+            break;
+        default:
+            break;
+        }
+    }
+
+//    QWidget::keyPressEvent( event );
+}
+
+void StatusMonitorView::keyReleaseEvent(QKeyEvent *event)
+{
+    if( robot_running_mode_ == RobotRunningMode::kManual )
+    {
+        switch( event->key() )
+        {
+        case Qt::Key_Up:
+            key_pressed_[DirKey::kUp] = false;
+            break;
+        case Qt::Key_Down:
+            key_pressed_[DirKey::kDown] = false;
+            break;
+        case Qt::Key_Left:
+            key_pressed_[DirKey::kLeft] = false;
+            break;
+        case Qt::Key_Right:
+            key_pressed_[DirKey::kRight] = false;
+            break;
+        default:
+            break;
+        }
+    }
+
+    QWidget::keyReleaseEvent( event );
+
+}
+
 void StatusMonitorView::slotOnReturnBtnClicked()
 {
     this->hide();
@@ -294,7 +419,59 @@ void StatusMonitorView::slotOnSwitchBtnClicked()
         switch_btn_->setText( SWITCH_TO_MONITOR );
         parentWidget()->setWindowTitle("Path Management");
     }
+}
 
+void StatusMonitorView::slotOnChangeRunningModeClicked(bool checked)
+{
+    if( monitor_mode_ == MonitorMode::kStatusMonitorMode )
+    {
+        if( robots_->empty() )
+            return;
+    }
+    else
+    {
+        if( !current_selected_robot_ || !current_selected_robot_->connected_)
+        {
+            qDebug() << "not selected or not connected!";
+            operation_btns_[kChangeRunningMode]->setChecked( false );
+            return;
+        }
+        robot_running_mode_ = checked ? RobotRunningMode::kAuto : RobotRunningMode::kManual;
+        current_selected_robot_->sendCommand_SetRunningMode( robot_running_mode_ );
+    }
+
+    if( checked )
+        operation_btns_[kChangeRunningMode]->setText("Auto");
+    else
+        operation_btns_[kChangeRunningMode]->setText("Manual");
+}
+
+void StatusMonitorView::slotOnRunOrHaltBtnClicked(bool checked)
+{
+    if( monitor_mode_ == MonitorMode::kStatusMonitorMode )
+    {
+        if( robots_->empty() )
+            return;
+    }
+    else
+    {
+        if( !current_selected_robot_ || !current_selected_robot_->connected_)
+        {
+            qDebug() << "not selected or not connected!";
+            operation_btns_[kRunOrHalt]->setChecked( false );
+            return;
+        }
+
+        if( checked)
+            current_selected_robot_->sendCommand_Run();
+        else
+            current_selected_robot_->sendCommand_Halt();
+    }
+
+    if( checked )
+        operation_btns_[kRunOrHalt]->setText("Running");
+    else
+        operation_btns_[kRunOrHalt]->setText("Halt");
 }
 
 void StatusMonitorView::slotOnSelectRobotBtnClicked(bool checked)
@@ -315,6 +492,28 @@ void StatusMonitorView::slotOnSelectRobotBtnClicked(bool checked)
             for( Robot& robot : *robots_ )
                 robot_names.append( robot.settings_.name_);
         robot_select_box_->addItems( robot_names );
+    }
+}
+
+void StatusMonitorView::slotOnChangeAddPointModeClicked(bool checked)
+{
+    if( monitor_mode_ == MonitorMode::kStatusMonitorMode )
+    {
+        operation_btns_[kChangeAddPointMode]->setChecked( false );
+    }
+    else
+    {
+        if( checked )
+        {
+            operation_btns_[kChangeAddPointMode]->setText("Add In UI");
+            add_point_mode_ = kInUI;
+        }
+        else
+        {
+            operation_btns_[kChangeAddPointMode]->setText("Add In Robot");
+            add_point_mode_ = kInRobot;
+        }
+
     }
 }
 
@@ -458,6 +657,45 @@ int32_t StatusMonitorView::getImageInfoFromFile(MapImageInfo &info, const char *
     }
 
     return 0;
+}
+
+void StatusMonitorView::slotOnAddPoint()
+{
+    if( !current_selected_robot_ || !current_selected_robot_->connected_)
+    {
+        qDebug() << "not selected or not connected!";
+        return;
+    }
+    if( add_point_mode_ == kInRobot )
+        current_selected_robot_->sendCommand_AddPoint();
+    else if( add_point_mode_ == kInUI )
+    {
+        QPointF tmp_vector = set_point_in_ui_ - origin_;
+        tmp_vector *= resolution_;
+        tmp_vector /= factor_;
+        current_selected_robot_->sendCommand_AddPoint( tmp_vector.x(), -tmp_vector.y(), 0.);
+        qDebug() << tmp_vector;
+    }
+}
+
+void StatusMonitorView::slotOnSetLoopMode()
+{
+    if( !current_selected_robot_ || !current_selected_robot_->connected_)
+    {
+        qDebug() << "not selected or not connected!";
+        return;
+    }
+    current_selected_robot_->sendCommand_SetLoopMode();
+}
+
+void StatusMonitorView::slotOnSetReverseMode()
+{
+    if( !current_selected_robot_ || !current_selected_robot_->connected_)
+    {
+        qDebug() << "not selected or not connected!";
+        return;
+    }
+    current_selected_robot_->sendCommand_SetReverseMode();
 }
 
 
