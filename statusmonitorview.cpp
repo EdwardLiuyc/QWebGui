@@ -297,10 +297,11 @@ void StatusMonitorView::timerEvent(QTimerEvent *event)
             {
                 Vector2F( 0, delta ),
                 Vector2F( 0, -delta),
-                Vector2F( delta, 0 ),
-                Vector2F( -delta, 0)
+                Vector2F( -delta, 0 ),
+                Vector2F( delta, 0)
             };
 
+            // forward
             if( key_pressed_[kUp] )
             {
                 if( manual_vec_.y() < 0. )
@@ -310,9 +311,43 @@ void StatusMonitorView::timerEvent(QTimerEvent *event)
                 else
                     manual_vec_ += delta_vec[kUp];
             }
+            else if( key_pressed_[kDown] )
+            {
+                if( manual_vec_.y() > 0. )
+                    manual_vec_.setY( -delta );
+                else if( manual_vec_.y() <= -1.)
+                    manual_vec_.setY( -1. );
+                else
+                    manual_vec_ += delta_vec[kDown];
+            }
+            else
+                manual_vec_.setY( 0. );
+
+            // turning
+            if( key_pressed_[kLeft] )
+            {
+                if( manual_vec_.x() > 0. )
+                    manual_vec_.setX( -delta );
+                else
+                    manual_vec_ += delta_vec[kLeft];
+            }
+            else if( key_pressed_[kRight] )
+            {
+                if( manual_vec_.x() < 0. )
+                    manual_vec_.setX( delta );
+                else
+                    manual_vec_ += delta_vec[kRight];
+            }
+            else
+                manual_vec_.setX( 0. );
         }
 
-        qDebug() << manual_vec_;
+        manual_strength_ = manual_vec_.manhattanLength();
+        if( manual_strength_ > 1. )
+            manual_strength_ = 1.;
+        manual_angle_ = atan2( manual_vec_.y(), manual_vec_.x() );
+
+        qDebug() << manual_strength_ << " " << manual_angle_ ;
 
         //
     }
