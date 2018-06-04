@@ -65,7 +65,6 @@ void QWebGui::resizeEvent(QResizeEvent *event)
     if( map_manage_view_  )
         map_manage_view_->setGeometry( 0, REMAIN_HEIFHT_FOR_VIEW, window_wdt, window_hgt-REMAIN_HEIFHT_FOR_VIEW*2 );
 
-
     QMainWindow::resizeEvent( event );
 }
 

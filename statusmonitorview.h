@@ -12,6 +12,7 @@
 #include <QImage>
 #include <QCheckBox>
 #include "robotselectview.h"
+#include "msgbox.h"
 
 enum MonitorMode
 {
@@ -30,6 +31,7 @@ public:
     explicit StatusMonitorView( std::list<Robot>* robots
                                 , std::list<MapSetting>* maps
                                 , QWidget *parent = 0, MonitorMode mode = kStatusMonitorMode);
+    ~StatusMonitorView();
 
     enum Operation
     {
@@ -83,8 +85,9 @@ public slots:
     void slotOnRunOrHaltBtnClicked( bool checked );
     void slotOnChangeAddPointModeClicked( bool checked );
     void slotOnSwitchBtnClicked();
-    void slotLoadMapImage( int index );
+    void slotOnMapSelected( int index );
     void slotOnRobotSelected( int index );
+    void slotOnRcvCurrentRobotMsg( DisplayMessage& msg );
 
     void slotOnAddPoint();
     void slotOnSetReverseMode();
@@ -92,19 +95,20 @@ public slots:
 
 private:
     // ** widgets **
-    QPushButton* operation_btns_[kOperationCount];
-    QPushButton* path_mng_btns_[kPathMngOperationCount];
-    QPushButton* return_btn_;
-    QPushButton* switch_btn_;
+    QPushButton*    operation_btns_[kOperationCount];
+    QPushButton*    path_mng_btns_[kPathMngOperationCount];
+    QPushButton*    return_btn_;
+    QPushButton*    switch_btn_;
     RobotSelectView* robot_select_view_;
-    QComboBox* map_select_box_;
-    QComboBox* robot_select_box_;
+    QComboBox*      map_select_box_;
+    QComboBox*      robot_select_box_;
+    MsgBox*         msg_box_;
 
     // ** robot data **
     std::list<Robot>* robots_;
     std::list<MapSetting>* maps_;
-    MapSetting local_map_;
-    Robot* current_selected_robot_;
+    MapSetting*     current_selected_map_;
+    Robot*          current_selected_robot_;
 
     // ** for paint **
     MonitorMode monitor_mode_;
@@ -128,15 +132,16 @@ private:
     int32_t timer_update_robots_;
     int32_t timer_manual_operating_;
 
-    // for manual
+    // for manual operation
     enum DirKey
     {
         kUp, kDown, kLeft, kRight, kKeyCount
     };
     bool key_pressed_[DirKey::kKeyCount];
     double manual_strength_     = 0.;
-    double manual_angle_        = 1.57;
+    double manual_angle_        = 0.;
     Vector2F manual_vec_;
+    bool have_manual_stop_;
 };
 
 #endif // STATUSMONITORVIEW_H

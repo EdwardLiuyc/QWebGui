@@ -5,6 +5,7 @@
 #include <QWebSocket>
 #include <QUrl>
 #include "common_defines.h"
+#include <queue>
 
 struct GpsPosition
 {
@@ -43,6 +44,7 @@ public:
     void sendCommand_Run();
     void sendCommand_Halt();
     void sendCommand_SetRunningMode( RobotRunningMode mode );
+    void sendCommand_ManualRun( double strength, double angle );
 
     bool selected_for_connect_;
     bool connected_;
@@ -54,6 +56,9 @@ protected:
     void sendCommand( int32_t id, QString cmd, int32_t value );
 
 signals:
+    void signalRobotConnected();
+    void signalRobotDisconnected();
+    void signalRobotRcvNormalMsg( DisplayMessage& msg );
 
 public slots:
     void slotOnSocketConnected();
@@ -63,6 +68,8 @@ public slots:
 private:
     QWebSocket      socket_;
     QUrl            url_;
+
+    std::queue<RobotState> state_history_;
 
     int32_t parseRecievedMsg(QString& msg);
 };

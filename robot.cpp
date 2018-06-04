@@ -22,12 +22,22 @@ void Robot::slotOnSocketConnected()
 {
     qDebug() << "WebSocket connected to " << url_;
     connected_ = true;
+
+    DisplayMessage msg;
+    msg.msg_ = "Robot:" + settings_.name_ + " Connected!";
+    msg.level_ = kNormalMsg;
+    emit signalRobotRcvNormalMsg( msg );
 }
 
 void Robot::slotOnSocketDisconnected()
 {
     qDebug() << "WebSocket disconnected " << url_;
     connected_ = false;
+
+    DisplayMessage msg;
+    msg.msg_ = "Robot:" + settings_.name_ + " Disconnected!";
+    msg.level_ = kErrorMsg;
+    emit signalRobotRcvNormalMsg( msg );
 }
 
 void Robot::slotOnSocketRecieveMsg(QString message)
@@ -97,23 +107,29 @@ int32_t Robot::parseRecievedMsg(QString &msg)
 
                 }
             }
-            else if( doc.HasMember("value") )
+            else if( strstr(cmd, "alert") && doc.HasMember("value") )
             {
+                QString normal_msg;
                 if( doc["value"].IsString() )
-                    qDebug() << cmd << " : " << doc["value"].GetString();
+                    normal_msg = doc["value"].GetString();
                 else if( doc["value"].IsArray() )
                 {
                     const rapidjson::Value& array = doc["value"];
                     size_t len = array.Size();
-                    QString str = cmd;
+                    normal_msg.clear();
                     for( size_t i = 0; i < len; ++i )
                         if( array[i].IsDouble() )
                         {
-                            str += QString::number( array[i].GetDouble(), 'd', 3 );
-                            str += " ";
+                            normal_msg += QString::number( array[i].GetDouble(), 'd', 3 );
+                            normal_msg += " ";
                         }
-                    qDebug() << str;
                 }
+
+                qDebug() << normal_msg;
+                DisplayMessage msg;
+                msg.msg_ = normal_msg;
+                msg.level_ = kNormalMsg;
+                emit signalRobotRcvNormalMsg( msg );
             }
         }
         else
@@ -231,7 +247,7 @@ enum NavigationMode
     kNavigationModeCount
 };
 
-#define OLD_CMD_FORMAT 1
+#define OLD_CMD_FORMAT  0
 void Robot::sendCommand_SetReverseMode()
 {
     int32_t id = 1;
@@ -244,10 +260,7 @@ void Robot::sendCommand_SetReverseMode()
     double value[value_num];
     value[0] = (double)kReverse;
 
-    sendCommand( id,
-                 cmd,
-                 value,
-                 value_num);
+    sendCommand( id, cmd, value, value_num);
 #endif
 
 }
@@ -264,10 +277,7 @@ void Robot::sendCommand_SetLoopMode()
     double value[value_num];
     value[0] = (double)kLoop;
 
-    sendCommand( id,
-                 cmd,
-                 value,
-                 value_num);
+    sendCommand( id, cmd, value, value_num);
 #endif
 }
 
@@ -283,10 +293,7 @@ void Robot::sendCommand_Run()
     double value[value_num];
     value[0] = 1.0;
 
-    sendCommand( id,
-                 cmd,
-                 value,
-                 value_num);
+    sendCommand( id, cmd, value, value_num);
 #endif
 }
 
@@ -302,10 +309,7 @@ void Robot::sendCommand_Halt()
     double value[value_num];
     value[0] = 0.0;
 
-    sendCommand( id,
-                 cmd,
-                 value,
-                 value_num);
+    sendCommand( id, cmd, value, value_num);
 #endif
 }
 
@@ -320,9 +324,16 @@ void Robot::sendCommand_SetRunningMode(RobotRunningMode mode)
     double value[value_num];
     value[0] = (double)mode;
 
-    sendCommand( id,
-                 cmd,
-                 value,
-                 value_num);
+    sendCommand( id, cmd, value, value_num);
 #endif
+}
+
+void Robot::sendCommand_ManualRun(double strength, double angle)
+{
+    int32_t id = 1;
+    QString cmd = "ManualMove";
+    const int32_t value_num = 2;
+    double value[value_num] = { strength, angle };
+
+    sendCommand( id, cmd, value, value_num);
 }

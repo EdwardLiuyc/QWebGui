@@ -35,7 +35,8 @@ SOURCES += main.cpp\
     pugixml/pugixml.cpp \
     mapmanagementview.cpp \
     addmapsettingdlg.cpp \
-    common_defines.cpp
+    common_defines.cpp \
+    msgbox.cpp
 
 HEADERS  += qwebgui.h \
     robot.h \
@@ -81,7 +82,8 @@ HEADERS  += qwebgui.h \
     rapidjson/include/rapidjson/stringbuffer.h \
     rapidjson/include/rapidjson/writer.h \
     mapmanagementview.h \
-    addmapsettingdlg.h
+    addmapsettingdlg.h \
+    msgbox.h
 
 RESOURCES += \
     icons.qrc

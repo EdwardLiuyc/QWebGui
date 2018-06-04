@@ -12,6 +12,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     : QWidget( parent )
     , robots_( robots )
     , maps_( maps )
+    , current_selected_map_( NULL )
     , current_selected_robot_( NULL )
     , monitor_mode_( mode )
     , path_manage_mode_( kOldMode )
@@ -24,6 +25,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     , origin_offset_()
     , timer_update_robots_( startTimer(500) )
     , timer_manual_operating_( startTimer(500) )
+    , have_manual_stop_( true )
 {
     QString operations_str[kOperationCount] = {"Robots", "Maps", "Manual", "Halt", "Add In Robot"};
     for( int i = 0; i < kOperationCount; ++i )
@@ -85,7 +87,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     map_select_box_->setFocusPolicy( Qt::NoFocus );
     map_select_box_->setVisible( false );
     map_select_box_->setFont( SYSTEM_UI_FONT_10_BOLD );
-    QObject::connect( map_select_box_, SIGNAL(currentIndexChanged(int)), this, SLOT(slotLoadMapImage(int)));
+    QObject::connect( map_select_box_, SIGNAL(currentIndexChanged(int)), this, SLOT(slotOnMapSelected(int)));
 
     robot_select_box_ = new QComboBox( this );
     robot_select_box_->setFocusPolicy( Qt::NoFocus );
@@ -96,7 +98,24 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     for( int i = 0; i < DirKey::kKeyCount; ++i )
         key_pressed_[i] = false;
 
+    msg_box_ = new MsgBox( this );
+    msg_box_->setFocusPolicy( Qt::NoFocus );
+
     this->setFocus();
+}
+
+StatusMonitorView::~StatusMonitorView()
+{
+    if( timer_update_robots_ != 0 )
+    {
+        killTimer(timer_update_robots_);
+        timer_update_robots_ = 0;
+    }
+    if( timer_manual_operating_ != 0 )
+    {
+        killTimer( timer_manual_operating_ );
+        timer_manual_operating_ = 0;
+    }
 }
 
 void StatusMonitorView::resizeEvent(QResizeEvent *event)
@@ -146,6 +165,12 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
                                         , path_mng_btn_wth, path_mng_btn_hgt);
         path_mng_btns_[i]->setIconSize( path_mng_btns_[i]->size() );
     }
+
+    // message box
+    int32_t msg_box_wth = 400;
+    int32_t msg_box_hgt = 80;
+    int32_t msg_box_left = view_wdt - gap_wdt - msg_box_wth;
+    msg_box_->setGeometry( msg_box_left, top_hgt, msg_box_wth, msg_box_hgt );
 
     QWidget::resizeEvent( event );
 }
@@ -270,6 +295,12 @@ void StatusMonitorView::timerEvent(QTimerEvent *event)
     }
     else if( timer_manual_operating_ != 0 && timer_manual_operating_ == event->timerId() )
     {
+        if( current_selected_robot_ == NULL )
+        {
+            QWidget::timerEvent( event );
+            return;
+        }
+
         bool need_add_strength = false;
         for( int i = 0; i < DirKey::kKeyCount; ++i )
         {
@@ -347,9 +378,19 @@ void StatusMonitorView::timerEvent(QTimerEvent *event)
             manual_strength_ = 1.;
         manual_angle_ = atan2( manual_vec_.y(), manual_vec_.x() );
 
-        qDebug() << manual_strength_ << " " << manual_angle_ ;
 
-        //
+        if( !DOUBLE_EQUAL( manual_strength_, 0. ) )
+        {
+            have_manual_stop_ = false;
+            current_selected_robot_->sendCommand_ManualRun( manual_strength_, manual_angle_ );
+        }
+        else if( !have_manual_stop_ )
+        {
+            current_selected_robot_->sendCommand_ManualRun( 0., 0. );
+            have_manual_stop_ = true;
+        }
+
+//        qDebug() << manual_strength_ << " " << manual_angle_ ;
     }
     QWidget::timerEvent( event );
 }
@@ -520,13 +561,20 @@ void StatusMonitorView::slotOnSelectRobotBtnClicked(bool checked)
     else
     {
         robot_select_box_->setVisible( checked );
-        robot_select_box_->clear();
-        QStringList robot_names;
-        robot_names.append( QString("Select Robot...") );
-        if( !robots_->empty() )
-            for( Robot& robot : *robots_ )
-                robot_names.append( robot.settings_.name_);
-        robot_select_box_->addItems( robot_names );
+        if( current_selected_robot_ )   // if has selected a robot, do nothing!
+            return;
+
+        if( checked )
+        {
+            robot_select_box_->clear();
+            QStringList robot_names;
+            robot_names.append( QString("Select Robot...") );
+            if( !robots_->empty() )
+                for( Robot& robot : *robots_ )
+                    robot_names.append( robot.settings_.name_);
+            robot_select_box_->addItems( robot_names );
+            robot_select_box_->setCurrentText( 0 );
+        }
     }
 }
 
@@ -554,7 +602,15 @@ void StatusMonitorView::slotOnChangeAddPointModeClicked(bool checked)
 
 void StatusMonitorView::slotOnRobotSelected(int index)
 {
-    if( index == 0 )
+    // if have selected, disconnect the former socket and disconnect from the slot
+    if( current_selected_robot_ )
+    {
+        current_selected_robot_->disconnectSocket();
+        QObject::disconnect( current_selected_robot_, SIGNAL(signalRobotRcvNormalMsg(DisplayMessage&)), this, SLOT(slotOnRcvCurrentRobotMsg(DisplayMessage&)));
+    }
+
+    // select no robot!
+    if( index <= 0 )
     {
         current_selected_robot_ = NULL;
         return;
@@ -563,23 +619,24 @@ void StatusMonitorView::slotOnRobotSelected(int index)
     std::list<Robot>::iterator it = robots_->begin();
     std::advance(it, index-1);
     if(!current_selected_robot_)
-    {
         current_selected_robot_ = &(*it);
-    }
     else
     {
-        if( current_selected_robot_->settings_.name_
-                == it->settings_.name_ )
+        if( current_selected_robot_->settings_.name_ == it->settings_.name_ )
             return;
         else
-        {
-            current_selected_robot_->disconnectSocket();
             current_selected_robot_ = &(*it);
-        }
     }
-    qDebug() << current_selected_robot_->settings_.name_;
 
+    QObject::connect( current_selected_robot_, SIGNAL(signalRobotRcvNormalMsg(DisplayMessage&)), this, SLOT(slotOnRcvCurrentRobotMsg(DisplayMessage&)));
     current_selected_robot_->connectSocket();
+
+}
+
+void StatusMonitorView::slotOnRcvCurrentRobotMsg(DisplayMessage &msg)
+{
+    qDebug() << "recieve msg :" << msg.msg_;
+    msg_box_->setMessage( msg );
 }
 
 void StatusMonitorView::slotOnSelectMapBtnClicked(bool checked)
@@ -588,6 +645,9 @@ void StatusMonitorView::slotOnSelectMapBtnClicked(bool checked)
         operation_btns_[kSelectRobot]->setChecked( false );
 
     map_select_box_->setVisible( checked );
+    if( current_selected_map_ )
+        return;
+
     map_select_box_->clear();
     QStringList map_names;
     map_names.append( QString("Select Map...") );
@@ -597,6 +657,7 @@ void StatusMonitorView::slotOnSelectMapBtnClicked(bool checked)
             map_names.append( setting.name_ );
 
     map_select_box_->addItems( map_names );
+    map_select_box_->setCurrentIndex( 0 );
 }
 
 void StatusMonitorView::hideSwitchableWidgets()
@@ -605,24 +666,34 @@ void StatusMonitorView::hideSwitchableWidgets()
         operation_btns_[i]->setChecked( false );
 }
 
-void StatusMonitorView::slotLoadMapImage( int index )
+void StatusMonitorView::slotOnMapSelected( int index )
 {
-    if( index == 0 )
+    if( index <= 0 )
+    {
+        current_selected_map_ = NULL;
+        has_map_ = false;
+        update();
         return;
+    }
 
     QImageReader reader;
     std::list<MapSetting>::iterator it = maps_->begin();
     std::advance( it, index - 1);
-
-    if( local_map_.image_file_name_ == it->image_file_name_ )
-        return;
+    if(!current_selected_map_)
+        current_selected_map_ = &(*it);
+    else
+    {
+        if( current_selected_map_->image_file_name_ == it->image_file_name_ )
+            return;
+        else
+            current_selected_map_ = &(*it);
+    }
 
     // read image file
-    local_map_ = *it;
-    reader.setFileName( local_map_.image_file_name_ );
+    reader.setFileName( current_selected_map_->image_file_name_ );
     if( reader.canRead() )
     {
-        qDebug() << "read image: " << local_map_.image_file_name_;
+        qDebug() << "read image: " << current_selected_map_->image_file_name_;
         image_ = reader.read();
         reader.setFormat("pgm");
         QSize image_size = image_.size();
@@ -644,7 +715,7 @@ void StatusMonitorView::slotLoadMapImage( int index )
     }
 
     // read image info
-    if( getImageInfoFromFile( map_image_info_, local_map_.image_info_file_name_.toStdString().c_str() ) == 0 )
+    if( getImageInfoFromFile( map_image_info_, current_selected_map_->image_info_file_name_.toStdString().c_str() ) == 0 )
     {
         qDebug() << map_image_info_.DebugString();
     }

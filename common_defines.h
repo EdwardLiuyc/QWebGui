@@ -18,6 +18,8 @@
 #define SYSTEM_UI_FONT_16_BOLD   QFont("system-ui",16,QFont::Bold)
 #define SYSTEM_UI_FONT_18_BOLD   QFont("system-ui",18,QFont::Bold)
 
+#define DOUBLE_EQUAL( a, b )    ( fabs( (a)-(b) ) < 1.e-6 )
+
 struct RobotSettings
 {
     QString     name_;
@@ -74,6 +76,31 @@ enum RobotRunningMode
     kManual = 0,
     kAuto = 1
 };
+
+enum MsgLevel
+{
+    kNormalMsg,
+    kWarningMsg,
+    kErrorMsg,
+    kMsgLevelCount
+};
+
+struct DisplayMessage
+{
+    QString msg_;
+    MsgLevel level_;
+
+    DisplayMessage()
+        : msg_()
+        , level_( kNormalMsg )
+    {}
+
+    DisplayMessage( QString msg, MsgLevel level = kNormalMsg )
+        : msg_( msg )
+        , level_( level )
+    {}
+};
+
 
 void paintACoordSystem(QPainter *painter, QPoint& org );
 void PaintARobot(QPainter* painter, QPointF pos, double yaw, double factor);
