@@ -32,11 +32,13 @@ public:
     explicit Robot(QObject *parent = 0);
     ~Robot();
 
+    // settings
     inline void setUrl( QUrl url ) { url_ = url; }
+    void setRecordAllHistory( bool flag );
     void connectSocket();
     void disconnectSocket();
 
-    // commands
+    // send commands
     void sendCommand_AddPoint(double stop_time = 0., AddPointType type = kNormal);
     void sendCommand_AddPoint(double x, double y, double yaw, double stop_time = 0., AddPointType type = kNormal);
     void sendCommand_SetReverseMode();
@@ -55,6 +57,8 @@ protected:
     void sendCommand( int32_t id, QString cmd, double* array, int32_t size );
     void sendCommand( int32_t id, QString cmd, int32_t value );
 
+    int32_t recordState();
+
 signals:
     void signalRobotConnected();
     void signalRobotDisconnected();
@@ -70,6 +74,7 @@ private:
     QUrl            url_;
 
     std::queue<RobotState> state_history_;
+    int32_t history_count_;
 
     int32_t parseRecievedMsg(QString& msg);
 };

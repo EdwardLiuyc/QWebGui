@@ -3,10 +3,15 @@
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
+
+#define DEFAULT_HISTORY_COUNT   200
+#define MAX_HISTORY_COUNT       20000
+
 Robot::Robot(QObject *parent)
     : QObject( parent )
     , selected_for_connect_( false )
     , connected_( false )
+    , history_count_( DEFAULT_HISTORY_COUNT )
 {
     connect( &socket_, SIGNAL(connected()), this, SLOT(slotOnSocketConnected()));
     connect( &socket_, SIGNAL(disconnected()), this, SLOT(slotOnSocketDisconnected()));
@@ -60,6 +65,14 @@ void Robot::disconnectSocket()
         socket_.close();
 }
 
+void Robot::setRecordAllHistory(bool flag)
+{
+    if(flag)
+        history_count_ = MAX_HISTORY_COUNT;
+    else
+        history_count_ = DEFAULT_HISTORY_COUNT;
+}
+
 int32_t Robot::parseRecievedMsg(QString &msg)
 {
     rapidjson::Document doc;
@@ -88,6 +101,8 @@ int32_t Robot::parseRecievedMsg(QString &msg)
                             state_.battery = object["battery"].GetDouble();
                         if( object.HasMember("error") && object["error"].IsDouble() )
                             state_.error = (int32_t)( object["error"].GetDouble() + 1e-6 );
+
+                        qDebug() << recordState();
                     }
                     else if( strstr(cmd, "gps") )
                     {
@@ -336,4 +351,13 @@ void Robot::sendCommand_ManualRun(double strength, double angle)
     double value[value_num] = { strength, angle };
 
     sendCommand( id, cmd, value, value_num);
+}
+
+int32_t Robot::recordState()
+{
+    state_history_.push( state_ );
+    while( (int32_t)state_history_.size() > history_count_ )
+        state_history_.pop();
+
+    return state_history_.size();
 }
