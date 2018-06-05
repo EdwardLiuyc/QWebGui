@@ -274,6 +274,9 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
                              , factor_ );
             }
     }
+
+    if( current_selected_robot_ )
+        PaintRunningHistory( &painter, *(current_selected_robot_->getHistrory()), 0.2, resolution_, factor_, tmp_origin );
 //    qDebug() << origin_;
 
     QWidget::paintEvent( event );

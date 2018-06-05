@@ -61,3 +61,54 @@ void PaintADot(QPainter* painter, QPointF &pos )
     painter->setBrush( QBrush(QColor(Qt::red)));
     painter->drawEllipse( pos, radius, radius );
 }
+
+bool tooClose( RobotState& a, RobotState& b, double min_distance )
+{
+    return sqrt( pow(a.x-b.x, 2.) + pow(a.y-b.y, 2. ) ) < min_distance;
+}
+
+void PaintRunningHistory(QPainter* painter, std::list<RobotState> &history, double robot_width, double resolution, double factor, QPoint origin)
+{
+    // at least 2 history state
+    if( !painter || history.size() <= 1 || robot_width <= 1.e-6 )
+        return;
+
+    std::list<RobotState>::iterator it = history.begin();
+    RobotState last_state = *it;
+    RobotState current_state;
+    double width_2 = robot_width * 0.5;
+    QColor color( QColor(Qt::gray) );
+//    painter->setPen( color );
+    for( std::advance( it, 1 );
+         it != history.end();
+         ++it)
+    {
+        QVector<QPointF> points;
+        current_state = *it;
+        if( tooClose( current_state, last_state, resolution) )
+            continue;
+
+        QPointF last_left( last_state.x + width_2 * cos(last_state.yaw+M_PI_2)
+                         , last_state.y + width_2 * sin(last_state.yaw+M_PI_2) );
+        QPointF last_right( last_state.x + width_2 * cos(last_state.yaw-M_PI_2)
+                          , last_state.y + width_2 * sin(last_state.yaw-M_PI_2) );
+        QPointF current_left( current_state.x + width_2 * cos(current_state.yaw+M_PI_2)
+                            , current_state.y + width_2 * sin(current_state.yaw+M_PI_2) );
+        QPointF current_right( current_state.x + width_2 * cos(current_state.yaw-M_PI_2)
+                             , current_state.y + width_2 * sin(current_state.yaw-M_PI_2) );
+
+        points.push_back( CalculateScreenPos(last_left, resolution, origin, factor)  );
+        points.push_back( CalculateScreenPos(current_left, resolution, origin, factor) );
+        points.push_back( CalculateScreenPos(current_right, resolution, origin, factor) );
+        points.push_back( CalculateScreenPos(last_right, resolution, origin, factor) );
+
+        QPainterPath path;
+        path.moveTo( points.at(0));
+        for( int i = 1; i < 4; ++i )
+            path.lineTo( points.at(i) );
+
+        painter->fillPath( path, color);
+//        painter->drawPath( path );
+        last_state = current_state;
+    }
+}

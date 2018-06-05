@@ -1,8 +1,10 @@
 #include "msgbox.h"
 #include <QTimerEvent>
 
+#define ANIMATION_DURATION_MS   1000
+
 MsgBox::MsgBox(QWidget *parent) : QWidget(parent)
-  , animation_duration_( 1000 )
+  , animation_duration_( ANIMATION_DURATION_MS )
 {
     text_browser_ = new QTextBrowser( this );
     text_browser_->setFocusPolicy(Qt::NoFocus);
@@ -46,6 +48,7 @@ void MsgBox::setMessage(DisplayMessage &msg)
         display_str += "<font color=\"#FF0000\">";
         break;
     default:
+        display_str += "<font color=\"#FFFFFF\">";
         break;
     }
 
@@ -54,13 +57,14 @@ void MsgBox::setMessage(DisplayMessage &msg)
     text_browser_->setText(display_str);
     if( timer_for_hiding_ == 0 )
     {
-        timer_for_hiding_ = startTimer( 2500 );
+        timer_for_hiding_ = startTimer( 100 );
     }
-    else
+    if( animation_->state() == QAbstractAnimation::Running )
     {
-        killTimer( timer_for_hiding_ );
-        timer_for_hiding_ = startTimer( 2500 );
+        animation_->stop();
     }
+
+    remaining_time_ms_ = MAX_SHOWING_TIME;
     opacity_->setOpacity(1);
     this->show();
 }
@@ -69,10 +73,14 @@ void MsgBox::timerEvent(QTimerEvent *event)
 {
     if( timer_for_hiding_!= 0 &&  timer_for_hiding_ == event->timerId() )
     {
-        killTimer( timer_for_hiding_ );
-        timer_for_hiding_ = 0;
-
-        animation_->start();
+        remaining_time_ms_ -= 100;
+        if( remaining_time_ms_ <= 0 )
+        {
+            killTimer( timer_for_hiding_ );
+            remaining_time_ms_ = 0;
+            timer_for_hiding_ = 0;
+            animation_->start();
+        }
     }
 
     QWidget::timerEvent(event);

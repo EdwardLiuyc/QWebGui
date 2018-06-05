@@ -7,7 +7,7 @@
 #include <QGraphicsOpacityEffect>
 #include "common_defines.h"
 
-
+#define MAX_SHOWING_TIME    2500 /*ms*/
 
 class QGraphicsOpacityEffect;
 class QPropertyAnimation;
@@ -31,6 +31,7 @@ private:
     QTextBrowser* text_browser_;
 
     int32_t timer_for_hiding_ = 0;
+    int32_t remaining_time_ms_ = MAX_SHOWING_TIME;
 
     QGraphicsOpacityEffect* opacity_;
     QPropertyAnimation*     animation_;

@@ -4,6 +4,7 @@
 #include <QFont>
 #include <QPushButton>
 #include <list>
+#include <queue>
 #include <QPainter>
 
 #define SYSTEM_UI_FONT_10   QFont("system-ui",10,QFont::Light)
@@ -101,10 +102,27 @@ struct DisplayMessage
     {}
 };
 
+struct GpsPosition
+{
+    double x, y, z;
+    int32_t mode;
+};
+
+struct RobotState
+{
+    double x, y;
+    double yaw;
+    double battery;
+    int32_t error;
+
+    GpsPosition gps_pos;
+};
+
 
 void paintACoordSystem(QPainter *painter, QPoint& org );
 void PaintARobot(QPainter* painter, QPointF pos, double yaw, double factor);
 void PaintADot(QPainter* painter, QPointF& pos );
+void PaintRunningHistory( QPainter* painter, std::list<RobotState>& history, double robot_width, double resolution, double factor, QPoint origin );
 QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
 
 #ifdef Q_OS_LINUX

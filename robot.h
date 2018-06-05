@@ -5,23 +5,6 @@
 #include <QWebSocket>
 #include <QUrl>
 #include "common_defines.h"
-#include <queue>
-
-struct GpsPosition
-{
-    double x, y, z;
-    int32_t mode;
-};
-
-struct RobotState
-{
-    double x, y;
-    double yaw;
-    double battery;
-    int32_t error;
-
-    GpsPosition gps_pos;
-};
 
 
 class Robot : public QObject
@@ -53,6 +36,9 @@ public:
     RobotSettings settings_;
     RobotState state_;
 
+    // gets
+    inline std::list<RobotState>* getHistrory(){ return &state_history_; }
+
 protected:
     void sendCommand( int32_t id, QString cmd, double* array, int32_t size );
     void sendCommand( int32_t id, QString cmd, int32_t value );
@@ -73,7 +59,7 @@ private:
     QWebSocket      socket_;
     QUrl            url_;
 
-    std::queue<RobotState> state_history_;
+    std::list<RobotState> state_history_;
     int32_t history_count_;
 
     int32_t parseRecievedMsg(QString& msg);

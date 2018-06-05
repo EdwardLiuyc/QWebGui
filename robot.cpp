@@ -102,7 +102,7 @@ int32_t Robot::parseRecievedMsg(QString &msg)
                         if( object.HasMember("error") && object["error"].IsDouble() )
                             state_.error = (int32_t)( object["error"].GetDouble() + 1e-6 );
 
-                        qDebug() << recordState();
+                        recordState();
                     }
                     else if( strstr(cmd, "gps") )
                     {
@@ -355,9 +355,9 @@ void Robot::sendCommand_ManualRun(double strength, double angle)
 
 int32_t Robot::recordState()
 {
-    state_history_.push( state_ );
+    state_history_.push_back( state_ );
     while( (int32_t)state_history_.size() > history_count_ )
-        state_history_.pop();
+        state_history_.pop_front();
 
     return state_history_.size();
 }
