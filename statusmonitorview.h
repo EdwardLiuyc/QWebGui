@@ -59,6 +59,7 @@ public:
 
     inline void setMode( MonitorMode mode ){ monitor_mode_ = mode; }
 
+
 protected:
     void resizeEvent(QResizeEvent* event);
     void paintEvent(QPaintEvent* event);
@@ -69,6 +70,9 @@ protected:
     void timerEvent(QTimerEvent* event);
     void keyPressEvent(QKeyEvent* event);
     void keyReleaseEvent(QKeyEvent *event);
+
+    void initializeGL() override;
+    void paintGL() override;
 
     void hideSwitchableWidgets();
 

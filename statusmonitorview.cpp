@@ -104,6 +104,12 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     this->setFocus();
 }
 
+void StatusMonitorView::initializeGL()
+{
+    // setBackGround
+    glClearColor( 0.19216f, 0.21176f, 0.23137f, 1.f );
+}
+
 StatusMonitorView::~StatusMonitorView()
 {
     if( timer_update_robots_ != 0 )
@@ -213,73 +219,93 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
 
 void StatusMonitorView::paintEvent(QPaintEvent *event)
 {
-    QPainter painter( this );
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    QPoint tmp_origin;
-    if( !has_map_ )
-    {
-        tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
-    }
-    else
-    {
-        // paint background
-        QColor bg_color( image_.pixel( 0, 0 ) );
-        painter.setBrush(bg_color);
-        painter.setPen(Qt::NoPen);
-        painter.drawRect(rect());
+//    QPainter painter( this );
+//    painter.setRenderHint(QPainter::Antialiasing, true);
+//    QPoint tmp_origin;
+//    if( !has_map_ )
+//    {
+//        tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
+//    }
+//    else
+//    {
+//        // paint background
+//        QColor bg_color( image_.pixel( 0, 0 ) );
+//        painter.setBrush(bg_color);
+//        painter.setPen(Qt::NoPen);
+//        painter.drawRect(rect());
 
-        // has map file, show map image and all robotics run in the map
-        QPixmap pixmap = QPixmap::fromImage( image_ );
-        int32_t view_wth = this->width();
-        int32_t view_hgt = this->height();
-        // scale the image
-        QSize image_size = image_.size();
+//        // has map file, show map image and all robotics run in the map
+//        QPixmap pixmap = QPixmap::fromImage( image_ );
+//        int32_t view_wth = this->width();
+//        int32_t view_hgt = this->height();
+//        // scale the image
+//        QSize image_size = image_.size();
 
-        int32_t scaled_image_wth = image_size.width() * factor_;
-        int32_t scaled_image_hgt = image_size.height() * factor_;
-        int32_t scaled_image_left = ( view_wth - scaled_image_wth ) / 2;
-        int32_t scaled_image_top = ( view_hgt - scaled_image_hgt ) / 2;
+//        int32_t scaled_image_wth = image_size.width() * factor_;
+//        int32_t scaled_image_hgt = image_size.height() * factor_;
+//        int32_t scaled_image_left = ( view_wth - scaled_image_wth ) / 2;
+//        int32_t scaled_image_top = ( view_hgt - scaled_image_hgt ) / 2;
 
-        QPoint tmp_offset = origin_offset_ + origin_offset_single_move_;
-        QPoint image_left_top( scaled_image_left + tmp_offset.x(), scaled_image_top + tmp_offset.y() );
-        QRect target( image_left_top.x(), image_left_top.y(), scaled_image_wth, scaled_image_hgt );
-        // draw the image
-        painter.drawPixmap(target, pixmap, image_.rect());
+//        QPoint tmp_offset = origin_offset_ + origin_offset_single_move_;
+//        QPoint image_left_top( scaled_image_left + tmp_offset.x(), scaled_image_top + tmp_offset.y() );
+//        QRect target( image_left_top.x(), image_left_top.y(), scaled_image_wth, scaled_image_hgt );
+//        // draw the image
+//        painter.drawPixmap(target, pixmap, image_.rect());
 
-        // dram the origin
-        Vector2i tmp_origin_offset = map_image_info_.origin_ * factor_;
-        origin_ = image_left_top + tmp_origin_offset;
-        tmp_origin = origin_;
+//        // dram the origin
+//        Vector2i tmp_origin_offset = map_image_info_.origin_ * factor_;
+//        origin_ = image_left_top + tmp_origin_offset;
+//        tmp_origin = origin_;
 
-        // resolution
-        resolution_ = map_image_info_.resolution_;
+//        // resolution
+//        resolution_ = map_image_info_.resolution_;
 
-        if( add_point_mode_ == kInUI )
-            PaintADot( &painter, set_point_in_ui_ );
-    }
+//        if( add_point_mode_ == kInUI )
+//            PaintADot( &painter, set_point_in_ui_ );
+//    }
 
-    paintACoordSystem( &painter, tmp_origin );
+//    paintACoordSystem( &painter, tmp_origin );
 
-    QPen pen( Qt::blue, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin );
-    painter.setPen(pen);
-    if( !robots_->empty() )
-    {
-        for( Robot& robot: *robots_ )
-            if( robot.connected_ )
-            {
-                QPointF robot_pos_real( robot.state_.x, robot.state_.y );
-                PaintARobot( &painter
-                             , CalculateScreenPos( robot_pos_real, resolution_ , tmp_origin, factor_ )
-                             , robot.state_.yaw
-                             , factor_ );
-            }
-    }
+//    QPen pen( Qt::blue, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin );
+//    painter.setPen(pen);
+//    if( !robots_->empty() )
+//    {
+//        for( Robot& robot: *robots_ )
+//            if( robot.connected_ )
+//            {
+//                QPointF robot_pos_real( robot.state_.x, robot.state_.y );
+//                PaintARobot( &painter
+//                             , CalculateScreenPos( robot_pos_real, resolution_ , tmp_origin, factor_ )
+//                             , robot.state_.yaw
+//                             , factor_ );
+//            }
+//    }
 
-    if( current_selected_robot_ )
-        PaintRunningHistory( &painter, *(current_selected_robot_->getHistrory()), 0.2, resolution_, factor_, tmp_origin );
-//    qDebug() << origin_;
+//    if( current_selected_robot_ )
+//        PaintRunningHistory( &painter, *(current_selected_robot_->getHistrory()), 0.2, resolution_, factor_, tmp_origin );
+////    qDebug() << origin_;
 
-    QWidget::paintEvent( event );
+    QOpenGLWidget::paintEvent( event );
+}
+
+void StatusMonitorView::paintGL()
+{
+    GLfloat view_wth = this->width();
+    GLfloat view_height = this->height();
+    GLfloat length = 20;
+
+    glClearColor( 0.19216f, 0.21176f, 0.23137f, 1.f );
+    glClear(GL_COLOR_BUFFER_BIT);         // Clear the color buffer (background)
+
+    glBegin(GL_LINES);            // These vertices form a closed polygon
+          glColor3f(1.0f, 1.0f, 0.0f); // Yellow
+          glVertex2f(-length/view_wth*2, 0.0f);
+          glVertex2f(length/view_wth*2, 0.0f);
+          glVertex2f(0.0f, -length/view_height*2);
+          glVertex2f(0.0f, length/view_height*2);
+    glEnd();
+
+    glFlush();  // Render now
 }
 
 void StatusMonitorView::timerEvent(QTimerEvent *event)
