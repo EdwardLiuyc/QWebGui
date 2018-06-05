@@ -6,6 +6,7 @@
 #include <QTableView>
 #include <QAbstractItemModel>
 #include <QAbstractTableModel>
+#include <QOpenGLWidget>
 #include <list>
 #include <QComboBox>
 #include <QImageReader>
@@ -24,7 +25,7 @@ enum MonitorMode
 using Vector2i = QPoint;
 using Vector2F = QPointF;
 class Robot;
-class StatusMonitorView : public QWidget
+class StatusMonitorView : public QOpenGLWidget
 {
     Q_OBJECT
 public:

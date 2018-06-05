@@ -9,7 +9,7 @@
 #define SWITCH_TO_MONITOR       QString( "Switch To\nMonitor" )
 #define SWITCH_TO_PATHMANAGER   QString( "Switch To\nPathManage" )
 StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSetting> *maps, QWidget *parent, MonitorMode mode)
-    : QWidget( parent )
+    : QOpenGLWidget( parent )
     , robots_( robots )
     , maps_( maps )
     , current_selected_map_( NULL )
