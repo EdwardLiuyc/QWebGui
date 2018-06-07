@@ -111,13 +111,17 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
         modify_map_sub_btns_[i]->setText( modify_map_op_str[i] );
         modify_map_sub_btns_[i]->setFont( SYSTEM_UI_FONT_10_BOLD );
         modify_map_sub_btns_[i]->setFocusPolicy( Qt::NoFocus );
-        modify_map_sub_btns_[i]->setCheckable( true );
         modify_map_sub_btns_[i]->setVisible( false );
 
         QObject::connect( modify_map_sub_btns_[i], SIGNAL(clicked()), this, SLOT(slotHandleModifyMapBtns()) );
     }
+    modify_map_sub_btns_[kFinishSelectPoints]->setEnabled( false );
+
+    std_qmessage_box_ = new QMessageBox( this );
+
 
     this->setFocus();
+    this->setMouseTracking( true );
 }
 
 StatusMonitorView::~StatusMonitorView()
@@ -225,6 +229,14 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
         origin_offset_single_move_ =  event->pos() - start_pos_for_move_;
         update();
     }
+    else if(modify_map_state_ == kAddingPoints && !tmp_show_current_adding_points_.empty())
+    {
+        QPointF current_pos = event->pos();
+        mutex_.lock();
+        tmp_show_current_adding_points_[tmp_show_current_adding_points_.size()-1] = current_pos;
+        mutex_.unlock();
+        update();
+    }
 
     QWidget::mouseMoveEvent(event);
 }
@@ -238,18 +250,19 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
         origin_offset_single_move_.setY( 0 );
 
     }
-    else if( event->button() == Qt::LeftButton )
+    else if( event->button() == Qt::LeftButton && modify_map_state_ == kAddingPoints)
     {
-        if( modify_map_state_ == kAddingPoints
-            /*&& current_start_pos_for_marquee_!=current_end_pos_for_marquee_
-            && */)
-        {
+        QPointF current_pos =  event->pos();
+        current_adding_points_.append( current_pos );
 
-            QPointF current_pos =  event->pos();
-            current_adding_points_.append( current_pos );
-            update();
-        }
-        qDebug() << end_pos_for_marquee_.size();
+        mutex_.lock();
+        tmp_show_current_adding_points_.clear();
+        tmp_show_current_adding_points_.append( current_adding_points_ );
+        tmp_show_current_adding_points_.append( current_pos );
+        mutex_.unlock();
+        update();
+
+        qDebug() << current_adding_points_.size() << tmp_show_current_adding_points_.size();
     }
 
     QWidget::mouseReleaseEvent( event );
@@ -324,24 +337,18 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
 
     painter.setBrush( QBrush(QColor(200,200,200,128)));
     painter.setPen( QPen(Qt::black, 1, Qt::DashDotLine, Qt::RoundCap, Qt::RoundJoin) );
-    PaintASelectedArea( &painter, current_adding_points_ );
+    PaintASelectedArea( &painter, tmp_show_current_adding_points_ );
 
-//    if( start_pos_for_marquee_.size() == end_pos_for_marquee_.size()
-//            && start_pos_for_marquee_.size() != 0 )
-//    {
-//        for( int i = 0; i < start_pos_for_marquee_.size(); ++i )
-//        {
-//            QLinearGradient linear(start_pos_for_marquee_[i], start_pos_for_marquee_[i]+QPointF(10,10));
-//            linear.setColorAt( 0, Qt::black);
-//            linear.setColorAt( 1, QColor( 80, 80, 80 ));
+    QLinearGradient linear(QPointF(0, 0), QPointF(10,10));
+    linear.setColorAt( 0, Qt::black);
+    linear.setColorAt( 1, QColor( 80, 80, 80 ));
 
-//            linear.setSpread( QGradient::RepeatSpread );
-//            painter.setBrush(linear);
-//            painter.setPen( QPen(Qt::black, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
-
-//            PaintASelectedArea( &painter, start_pos_for_marquee_[i], end_pos_for_marquee_[i] );
-//        }
-//    }
+    linear.setSpread( QGradient::RepeatSpread );
+    painter.setBrush(linear);
+    painter.setPen( QPen(Qt::black, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
+    if( !modifyed_points_sets_.empty() )
+        for( int i = 0; i < modifyed_points_sets_.size(); ++i )
+            PaintASelectedArea( &painter, modifyed_points_sets_[i] );
 
     QWidget::paintEvent( event );
 }
@@ -351,11 +358,8 @@ void StatusMonitorView::slotHandleModifyMapBtns()
     QPushButton* btn = qobject_cast<QPushButton *>(QObject::sender());
     if( btn == modify_map_sub_btns_[kStartSelectPoints] )
     {
-        if( modify_map_sub_btns_[kStartSelectPoints]->isChecked() )
-        {
-            modify_map_state_ = ModifyMapState::kAddingPoints;
-            modify_map_sub_btns_[kStartSelectPoints]->setEnabled( false );
-        }
+        modify_map_state_ = ModifyMapState::kAddingPoints;
+        modify_map_sub_btns_[kStartSelectPoints]->setEnabled( false );
 
         modify_map_sub_btns_[kFinishSelectPoints]->setEnabled( true );
         modify_map_sub_btns_[kDeleteArea]->setEnabled( false );
@@ -369,13 +373,19 @@ void StatusMonitorView::slotHandleModifyMapBtns()
         modify_map_sub_btns_[kDeleteArea]->setEnabled( true );
         modify_map_sub_btns_[kSaveToMap]->setEnabled( true );
 
-        if( QMessageBox::information( this,
-                                                 "Info",
-                                                 "Add New obstacle?",
-                                                 QMessageBox::Yes | QMessageBox::No,
-                                                 QMessageBox::Yes)
-                        ==  QMessageBox::Yes )
-            qDebug() << "finished";
+        if( !current_adding_points_.empty() )
+        {
+            if( std_qmessage_box_->question( this, "Info", "Add New obstacle?", QMessageBox::Yes | QMessageBox::No,
+                                         QMessageBox::Yes) == QMessageBox::Yes )
+            {
+                modifyed_points_sets_.append( current_adding_points_ );
+                current_adding_points_.clear();
+                tmp_show_current_adding_points_.clear();
+
+                update();
+            }
+        }
+
     }
     else if ( btn == modify_map_sub_btns_[kDeleteArea] )
     {
