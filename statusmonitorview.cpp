@@ -2,6 +2,7 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QMessageBox>
 #include <QDebug>
 #include "pugixml/pugixml.hpp"
 
@@ -27,7 +28,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     , timer_manual_operating_( startTimer(500) )
     , have_manual_stop_( true )
 {
-    QString operations_str[kOperationCount] = {"Robots", "Maps", "Manual", "Halt", "Add In Robot"};
+    QString operations_str[kOperationCount] = {"Robots", "Maps", "Manual", "Halt", "Add In Robot", "Modify Map"};
     for( int i = 0; i < kOperationCount; ++i )
     {
         operation_btns_[i] = new QPushButton(this);
@@ -36,11 +37,13 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
         operation_btns_[i]->setFocusPolicy( Qt::NoFocus );
         operation_btns_[i]->setCheckable( true );
     }
+    operation_btns_[kModifyMap]->setEnabled( has_map_ );
     QObject::connect( operation_btns_[kSelectRobot], SIGNAL(toggled(bool)), this, SLOT(slotOnSelectRobotBtnClicked(bool)));
     QObject::connect( operation_btns_[kSelectMap], SIGNAL(toggled(bool)), this, SLOT(slotOnSelectMapBtnClicked(bool)));
     QObject::connect( operation_btns_[kChangeRunningMode], SIGNAL(toggled(bool)), this, SLOT(slotOnChangeRunningModeClicked(bool)));
     QObject::connect( operation_btns_[kRunOrHalt], SIGNAL(toggled(bool)), this, SLOT(slotOnRunOrHaltBtnClicked(bool)));
     QObject::connect( operation_btns_[kChangeAddPointMode], SIGNAL(toggled(bool)), this, SLOT(slotOnChangeAddPointModeClicked(bool)));
+    QObject::connect( operation_btns_[kModifyMap], SIGNAL(toggled(bool)), this, SLOT(slotOnModifyMapClicked(bool)));
 
     QString image_paths[kPathMngOperationCount] =
     {
@@ -101,6 +104,19 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     msg_box_ = new MsgBox( this );
     msg_box_->setFocusPolicy( Qt::NoFocus );
 
+    QString modify_map_op_str[kModifyMapOpCount] = { "start", "finish", "delete", "save"};
+    for( int i = 0; i < kModifyMapOpCount; ++i )
+    {
+        modify_map_sub_btns_[i] = new QPushButton( this );
+        modify_map_sub_btns_[i]->setText( modify_map_op_str[i] );
+        modify_map_sub_btns_[i]->setFont( SYSTEM_UI_FONT_10_BOLD );
+        modify_map_sub_btns_[i]->setFocusPolicy( Qt::NoFocus );
+        modify_map_sub_btns_[i]->setCheckable( true );
+        modify_map_sub_btns_[i]->setVisible( false );
+
+        QObject::connect( modify_map_sub_btns_[i], SIGNAL(clicked()), this, SLOT(slotHandleModifyMapBtns()) );
+    }
+
     this->setFocus();
 }
 
@@ -136,6 +152,17 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     const int top_hgt = 30;
     for( int i = 0; i < kOperationCount; ++i )
         operation_btns_[i]->setGeometry( gap_wdt, i*(btn_hgt+gap_hgt) + top_hgt, btn_wdt, btn_hgt );
+
+    int32_t sub_btn_wth = 100;
+    int32_t sub_btn_hgt = 25;
+    int32_t sub_gap_wdt = 10;
+    int32_t sub_gap_hgt = 8;
+    for( int i = 0; i < kModifyMapOpCount; ++i )
+        modify_map_sub_btns_[i]->setGeometry( gap_wdt + btn_wdt + sub_gap_wdt
+                                              , operation_btns_[kModifyMap]->geometry().top() + i * (sub_btn_hgt+sub_gap_hgt)
+                                              , sub_btn_wth
+                                              , sub_btn_hgt);
+
 
     int32_t switch_btn_hgt = btn_hgt * 2;
     return_btn_->setGeometry( gap_wdt, view_hgt - btn_hgt - top_hgt, btn_wdt, btn_hgt );
@@ -178,7 +205,7 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
 void StatusMonitorView::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::RightButton)
-        start_pos_ = event->pos();
+        start_pos_for_move_ = event->pos();
     else if( event->button() == Qt::LeftButton )
     {
         if( add_point_mode_ == kInUI && has_map_ )
@@ -195,7 +222,7 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
 {
     if( event->buttons() & Qt::RightButton )
     {
-        origin_offset_single_move_ =  event->pos() - start_pos_;
+        origin_offset_single_move_ =  event->pos() - start_pos_for_move_;
         update();
     }
 
@@ -204,9 +231,26 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
 
 void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
 {
-    origin_offset_ += origin_offset_single_move_;
-    origin_offset_single_move_.setX( 0 );
-    origin_offset_single_move_.setY( 0 );
+    if( event->button() == Qt::RightButton )
+    {
+        origin_offset_ += origin_offset_single_move_;
+        origin_offset_single_move_.setX( 0 );
+        origin_offset_single_move_.setY( 0 );
+
+    }
+    else if( event->button() == Qt::LeftButton )
+    {
+        if( modify_map_state_ == kAddingPoints
+            /*&& current_start_pos_for_marquee_!=current_end_pos_for_marquee_
+            && */)
+        {
+
+            QPointF current_pos =  event->pos();
+            current_adding_points_.append( current_pos );
+            update();
+        }
+        qDebug() << end_pos_for_marquee_.size();
+    }
 
     QWidget::mouseReleaseEvent( event );
 }
@@ -277,9 +321,70 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
 
     if( current_selected_robot_ )
         PaintRunningHistory( &painter, *(current_selected_robot_->getHistrory()), 0.2, resolution_, factor_, tmp_origin );
-//    qDebug() << origin_;
+
+    painter.setBrush( QBrush(QColor(200,200,200,128)));
+    painter.setPen( QPen(Qt::black, 1, Qt::DashDotLine, Qt::RoundCap, Qt::RoundJoin) );
+    PaintASelectedArea( &painter, current_adding_points_ );
+
+//    if( start_pos_for_marquee_.size() == end_pos_for_marquee_.size()
+//            && start_pos_for_marquee_.size() != 0 )
+//    {
+//        for( int i = 0; i < start_pos_for_marquee_.size(); ++i )
+//        {
+//            QLinearGradient linear(start_pos_for_marquee_[i], start_pos_for_marquee_[i]+QPointF(10,10));
+//            linear.setColorAt( 0, Qt::black);
+//            linear.setColorAt( 1, QColor( 80, 80, 80 ));
+
+//            linear.setSpread( QGradient::RepeatSpread );
+//            painter.setBrush(linear);
+//            painter.setPen( QPen(Qt::black, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
+
+//            PaintASelectedArea( &painter, start_pos_for_marquee_[i], end_pos_for_marquee_[i] );
+//        }
+//    }
 
     QWidget::paintEvent( event );
+}
+
+void StatusMonitorView::slotHandleModifyMapBtns()
+{
+    QPushButton* btn = qobject_cast<QPushButton *>(QObject::sender());
+    if( btn == modify_map_sub_btns_[kStartSelectPoints] )
+    {
+        if( modify_map_sub_btns_[kStartSelectPoints]->isChecked() )
+        {
+            modify_map_state_ = ModifyMapState::kAddingPoints;
+            modify_map_sub_btns_[kStartSelectPoints]->setEnabled( false );
+        }
+
+        modify_map_sub_btns_[kFinishSelectPoints]->setEnabled( true );
+        modify_map_sub_btns_[kDeleteArea]->setEnabled( false );
+        modify_map_sub_btns_[kSaveToMap]->setEnabled( false );
+    }
+    else if ( btn == modify_map_sub_btns_[kFinishSelectPoints] )
+    {
+        modify_map_state_ = ModifyMapState::kDoingNothing;
+        modify_map_sub_btns_[kStartSelectPoints]->setEnabled( true );
+        modify_map_sub_btns_[kFinishSelectPoints]->setEnabled( false );
+        modify_map_sub_btns_[kDeleteArea]->setEnabled( true );
+        modify_map_sub_btns_[kSaveToMap]->setEnabled( true );
+
+        if( QMessageBox::information( this,
+                                                 "Info",
+                                                 "Add New obstacle?",
+                                                 QMessageBox::Yes | QMessageBox::No,
+                                                 QMessageBox::Yes)
+                        ==  QMessageBox::Yes )
+            qDebug() << "finished";
+    }
+    else if ( btn == modify_map_sub_btns_[kDeleteArea] )
+    {
+
+    }
+    else if( btn == modify_map_sub_btns_[kSaveToMap] )
+    {
+
+    }
 }
 
 void StatusMonitorView::timerEvent(QTimerEvent *event)
@@ -484,6 +589,12 @@ void StatusMonitorView::slotOnReturnBtnClicked()
     emit signalReturn();
 }
 
+void StatusMonitorView::slotOnModifyMapClicked(bool checked)
+{
+    for( int i = 0; i < kModifyMapOpCount; ++i )
+        modify_map_sub_btns_[i]->setVisible( checked );
+}
+
 void StatusMonitorView::slotOnSwitchBtnClicked()
 {
     hideSwitchableWidgets();
@@ -675,6 +786,7 @@ void StatusMonitorView::slotOnMapSelected( int index )
     {
         current_selected_map_ = NULL;
         has_map_ = false;
+        operation_btns_[kModifyMap]->setEnabled( false );
         update();
         return;
     }
@@ -693,6 +805,7 @@ void StatusMonitorView::slotOnMapSelected( int index )
     }
 
     // read image file
+    has_map_ = false;
     reader.setFileName( current_selected_map_->image_file_name_ );
     if( reader.canRead() )
     {
@@ -726,6 +839,7 @@ void StatusMonitorView::slotOnMapSelected( int index )
     {
         qDebug() << "failed to load image info!";
     }
+    operation_btns_[kModifyMap]->setEnabled( has_map_ );
 
     update();
 }

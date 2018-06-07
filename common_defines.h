@@ -7,12 +7,14 @@
 #include <queue>
 #include <QPainter>
 
+#define SYSTEM_UI_FONT_8   QFont("system-ui",8,QFont::Light)
 #define SYSTEM_UI_FONT_10   QFont("system-ui",10,QFont::Light)
 #define SYSTEM_UI_FONT_12   QFont("system-ui",12,QFont::Light)
 #define SYSTEM_UI_FONT_14   QFont("system-ui",14,QFont::Light)
 #define SYSTEM_UI_FONT_16   QFont("system-ui",16,QFont::Light)
 #define SYSTEM_UI_FONT_18   QFont("system-ui",18,QFont::Light)
 
+#define SYSTEM_UI_FONT_8_BOLD   QFont("system-ui",8,QFont::Bold)
 #define SYSTEM_UI_FONT_10_BOLD   QFont("system-ui",10,QFont::Bold)
 #define SYSTEM_UI_FONT_12_BOLD   QFont("system-ui",12,QFont::Bold)
 #define SYSTEM_UI_FONT_14_BOLD   QFont("system-ui",14,QFont::Bold)
@@ -123,6 +125,8 @@ void paintACoordSystem(QPainter *painter, QPoint& org );
 void PaintARobot(QPainter* painter, QPointF pos, double yaw, double factor);
 void PaintADot(QPainter* painter, QPointF& pos );
 void PaintRunningHistory( QPainter* painter, std::list<RobotState>& history, double robot_width, double resolution, double factor, QPoint origin );
+void PaintASelectedArea( QPainter* painter, QList<QPointF>& points );
+//void PaintAExclusionZone( QPainter* painter)
 QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
 
 #ifdef Q_OS_LINUX

@@ -107,8 +107,22 @@ void PaintRunningHistory(QPainter* painter, std::list<RobotState> &history, doub
         for( int i = 1; i < 4; ++i )
             path.lineTo( points.at(i) );
 
-        painter->fillPath( path, color);
+        painter->fillPath( path, color );
 //        painter->drawPath( path );
         last_state = current_state;
     }
+}
+
+void PaintASelectedArea(QPainter* painter, QList<QPointF> &points)
+{
+    if( !painter || points.size() <= 1 )
+        return;
+
+    QPainterPath path;
+    path.moveTo( points.at(0) );
+    for( int i = 1; i < points.size(); ++i )
+        path.lineTo( points.at(i) );
+
+    path.closeSubpath();
+    painter->drawPath( path );
 }

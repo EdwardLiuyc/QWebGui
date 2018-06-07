@@ -7,6 +7,8 @@
 #include <QAbstractItemModel>
 #include <QAbstractTableModel>
 #include <list>
+#include <vector>
+#include <QMutex>
 #include <QComboBox>
 #include <QImageReader>
 #include <QImage>
@@ -40,6 +42,7 @@ public:
         kChangeRunningMode,
         kRunOrHalt,
         kChangeAddPointMode,
+        kModifyMap,
         kOperationCount,
     };
 
@@ -49,6 +52,22 @@ public:
         kSetReverseMode,
         kSetLoopMode,
         kPathMngOperationCount
+    };
+
+    enum ModifyMapOperations
+    {
+        kStartSelectPoints,
+        kFinishSelectPoints,
+        kDeleteArea,
+        kSaveToMap,
+        kModifyMapOpCount
+    };
+
+    enum ModifyMapState
+    {
+        kDoingNothing,
+        kAddingPoints,
+        kDeletingArea
     };
 
     enum AddPointMode
@@ -84,10 +103,13 @@ public slots:
     void slotOnChangeRunningModeClicked( bool checked );
     void slotOnRunOrHaltBtnClicked( bool checked );
     void slotOnChangeAddPointModeClicked( bool checked );
+    void slotOnModifyMapClicked( bool checked );
     void slotOnSwitchBtnClicked();
     void slotOnMapSelected( int index );
     void slotOnRobotSelected( int index );
     void slotOnRcvCurrentRobotMsg( DisplayMessage& msg );
+
+    void slotHandleModifyMapBtns();
 
     void slotOnAddPoint();
     void slotOnSetReverseMode();
@@ -97,6 +119,8 @@ private:
     // ** widgets **
     QPushButton*    operation_btns_[kOperationCount];
     QPushButton*    path_mng_btns_[kPathMngOperationCount];
+    QPushButton*    modify_map_sub_btns_[kModifyMapOpCount];
+
     QPushButton*    return_btn_;
     QPushButton*    switch_btn_;
     RobotSelectView* robot_select_view_;
@@ -115,13 +139,22 @@ private:
     PathMngMode path_manage_mode_;
     AddPointMode add_point_mode_ = kInRobot;
     RobotRunningMode robot_running_mode_ = RobotRunningMode::kManual;
+    ModifyMapState  modify_map_state_ = ModifyMapState::kDoingNothing;
     QPointF set_point_in_ui_;
     bool has_map_;
     bool got_first_origin_;
     double factor_;
     double min_factor_;
     double resolution_;
-    QPoint start_pos_;
+    QPoint start_pos_for_move_;
+    QMutex mutex_;
+
+    QList<QPointF> current_adding_points_;
+    QPointF current_start_pos_for_marquee_, current_end_pos_for_marquee_;
+    QList< QList<QPointF> > modifyed_points_sets_;
+
+    QList<QPointF> start_pos_for_marquee_;
+    QList<QPointF> end_pos_for_marquee_;
     QPoint origin_;
     Vector2i origin_offset_;
     Vector2i origin_offset_single_move_;
