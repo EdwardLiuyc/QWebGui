@@ -140,7 +140,9 @@ private:
     AddPointMode add_point_mode_ = kInRobot;
     RobotRunningMode robot_running_mode_ = RobotRunningMode::kManual;
     ModifyMapState  modify_map_state_ = ModifyMapState::kDoingNothing;
-    QPointF set_point_in_ui_;
+    QPointF last_target_point_set_in_ui_;
+    std::list<QPointF> target_points_set_in_ui_;
+    bool need_restart_record_target_list_;
     bool has_map_;
     bool got_first_origin_;
     double factor_;

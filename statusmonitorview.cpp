@@ -18,6 +18,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     , current_selected_robot_( NULL )
     , monitor_mode_( mode )
     , path_manage_mode_( kOldMode )
+    , need_restart_record_target_list_( false )
     , has_map_( false )
     , got_first_origin_( false )
     , factor_( 1.0 )
@@ -222,7 +223,15 @@ void StatusMonitorView::mousePressEvent(QMouseEvent *event)
     {
         if( add_point_mode_ == kInUI && has_map_ )
         {
-            set_point_in_ui_ = event->pos();
+            QPointF current_pos = event->pos();
+            QPoint tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
+            last_target_point_set_in_ui_ = CalculateRobotPos( current_pos, resolution_, tmp_origin, factor_);
+
+            if( need_restart_record_target_list_ )
+            {
+                target_points_set_in_ui_.clear();
+                need_restart_record_target_list_ = false;
+            }
             update();
         }
     }
@@ -285,8 +294,6 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
         tmp_show_current_adding_points_.append( current_pos );
         mutex_.unlock();
         update();
-
-//        qDebug() << current_adding_points_.size() << tmp_show_current_adding_points_.size();
     }
     else if( modify_map_state_ == kDeletingArea && !modifyed_points_sets_.empty() )
     {
@@ -328,14 +335,23 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
         QPixmap pixmap = QPixmap::fromImage( image_ );
         // scale the image
         QSize image_size = image_.size();
-
         int32_t scaled_image_wth = image_size.width() * factor_;
         int32_t scaled_image_hgt = image_size.height() * factor_;
         QRect target( image_left_top.x(), image_left_top.y(), scaled_image_wth, scaled_image_hgt );
         painter.drawPixmap( target, pixmap, image_.rect() );
 
         if( add_point_mode_ == kInUI )
-            PaintADot( &painter, set_point_in_ui_ );
+        {
+            QPointF screen_point;
+            for( auto& target_point: target_points_set_in_ui_ )
+            {
+                screen_point = CalculateScreenPos( target_point, resolution_, tmp_origin, factor_);
+                PaintATargetPoint( &painter, screen_point );
+            }
+
+            screen_point = CalculateScreenPos( last_target_point_set_in_ui_, resolution_, tmp_origin, factor_);
+            PaintATargetPoint( &painter, screen_point );
+        }
     }
 
     paintACoordSystem( &painter, tmp_origin );
@@ -611,8 +627,7 @@ void StatusMonitorView::keyPressEvent(QKeyEvent *event)
             break;
         }
     }
-
-//    QWidget::keyPressEvent( event );
+    QWidget::keyPressEvent( event );
 }
 
 void StatusMonitorView::keyReleaseEvent(QKeyEvent *event)
@@ -639,7 +654,6 @@ void StatusMonitorView::keyReleaseEvent(QKeyEvent *event)
     }
 
     QWidget::keyReleaseEvent( event );
-
 }
 
 void StatusMonitorView::slotOnReturnBtnClicked()
@@ -883,7 +897,6 @@ void StatusMonitorView::slotOnMapSelected( int index )
         double factor_y = (double)view_hgt / (double)image_hgt;
         factor_ = std::min( factor_x, factor_y );
         min_factor_ = factor_ * 0.5;
-
     }
     else
     {
@@ -976,11 +989,10 @@ void StatusMonitorView::slotOnAddPoint()
         current_selected_robot_->sendCommand_AddPoint();
     else if( add_point_mode_ == kInUI )
     {
-        QPointF tmp_vector = set_point_in_ui_ - origin_;
-        tmp_vector *= resolution_;
-        tmp_vector /= factor_;
-        current_selected_robot_->sendCommand_AddPoint( tmp_vector.x(), -tmp_vector.y(), 0.);
-        qDebug() << tmp_vector;
+        current_selected_robot_->sendCommand_AddPoint( last_target_point_set_in_ui_.x(), last_target_point_set_in_ui_.y(), 0.);
+        qDebug() << last_target_point_set_in_ui_;
+
+        target_points_set_in_ui_.push_back( last_target_point_set_in_ui_ );
     }
 }
 
@@ -992,6 +1004,7 @@ void StatusMonitorView::slotOnSetLoopMode()
         return;
     }
     current_selected_robot_->sendCommand_SetLoopMode();
+    need_restart_record_target_list_ = true;
 }
 
 void StatusMonitorView::slotOnSetReverseMode()
@@ -1002,6 +1015,7 @@ void StatusMonitorView::slotOnSetReverseMode()
         return;
     }
     current_selected_robot_->sendCommand_SetReverseMode();
+    need_restart_record_target_list_ = true;
 }
 
 

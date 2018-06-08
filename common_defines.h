@@ -124,10 +124,11 @@ struct RobotState
 void paintACoordSystem(QPainter *painter, QPoint& org );
 void PaintARobot(QPainter* painter, QPointF pos, double yaw, double factor);
 void PaintADot(QPainter* painter, QPointF& pos );
+void PaintATargetPoint( QPainter* painter, QPointF& pos );
 void PaintRunningHistory( QPainter* painter, std::list<RobotState>& history, double robot_width, double resolution, double factor, QPoint origin );
 void PaintASelectedArea( QPainter* painter, QList<QPointF>& points );
-//void PaintAExclusionZone( QPainter* painter)
 QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
+QPointF CalculateRobotPos( QPointF screen_pos, double resolution, QPoint origin, double factor );
 bool IsInsidePoly( const QPointF &iPoint, const QList<QPointF> &polygon );
 
 #ifdef Q_OS_LINUX

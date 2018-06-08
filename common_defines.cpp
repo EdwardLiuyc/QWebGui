@@ -62,6 +62,24 @@ void PaintADot(QPainter* painter, QPointF &pos )
     painter->drawEllipse( pos, radius, radius );
 }
 
+void PaintATargetPoint( QPainter* painter, QPointF& pos )
+{
+    if( !painter || pos.x() < 0 || pos.y() < 0 )
+        return;
+
+    QPointF tmp_point = pos + QPointF(4,-10);
+    QColor color( QColor(Qt::red) );
+    painter->setPen( QPen(color, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
+    painter->drawLine( pos, tmp_point );
+
+    QPainterPath path;
+    path.moveTo( tmp_point );
+    path.lineTo( tmp_point + QPointF( 8, 0 ) );
+    path.lineTo( tmp_point + QPointF( 8, 0 ) + QPointF( -1, 5 ));
+    path.lineTo( pos + QPointF( 2, -5 ) );
+    painter->fillPath( path, color );
+}
+
 bool tooClose( RobotState& a, RobotState& b, double min_distance )
 {
     return sqrt( pow(a.x-b.x, 2.) + pow(a.y-b.y, 2. ) ) < min_distance;
@@ -152,4 +170,13 @@ bool IsInsidePoly( const QPointF &iPoint, const QList<QPointF> &polygon )
 
     return left&right;
 
+}
+
+QPointF CalculateRobotPos( QPointF screen_pos, double resolution, QPoint origin, double factor )
+{
+    QPointF tmp_vector = screen_pos - origin;
+    tmp_vector *= resolution;
+    tmp_vector /= factor;
+
+    return QPointF( tmp_vector.x(), -tmp_vector.y() );
 }

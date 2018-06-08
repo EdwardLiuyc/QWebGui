@@ -1,7 +1,7 @@
 #include "msgbox.h"
 #include <QTimerEvent>
 
-#define ANIMATION_DURATION_MS   1000
+#define ANIMATION_DURATION_MS   400
 
 MsgBox::MsgBox(QWidget *parent) : QWidget(parent)
   , animation_duration_( ANIMATION_DURATION_MS )
@@ -29,7 +29,6 @@ MsgBox::MsgBox(QWidget *parent) : QWidget(parent)
 void MsgBox::resizeEvent(QResizeEvent *event)
 {
     text_browser_->setGeometry( 0, 0, width(), height() );
-
     QWidget::resizeEvent( event );
 }
 
