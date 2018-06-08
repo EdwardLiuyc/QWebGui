@@ -206,7 +206,6 @@ void QWebGui::updateRobotListFromSettings()
     for( Robot& r : robots_ )
     {
         r.settings_ = *setting;
-        qDebug() << setting->DebugString();
         QString url_str = "ws://" + setting->ip_ + ":" + QString::number(setting->port_);
         r.setUrl( QUrl(url_str) );
         setting++;

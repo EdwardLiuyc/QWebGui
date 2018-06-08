@@ -13,7 +13,6 @@
 #include <QImageReader>
 #include <QImage>
 #include <QCheckBox>
-#include <QMessageBox>
 #include "robotselectview.h"
 #include "msgbox.h"
 
@@ -153,10 +152,9 @@ private:
     QList<QPointF> current_adding_points_;
     QList<QPointF> tmp_show_current_adding_points_;
     QPointF current_start_pos_for_marquee_, current_end_pos_for_marquee_;
-    QList< QList<QPointF> > modifyed_points_sets_;
 
-    QList<QPointF> start_pos_for_marquee_;
-    QList<QPointF> end_pos_for_marquee_;
+    QList< QList<QPointF> > modifyed_points_sets_;
+    QList<bool> selected_to_delete_;
     QPoint origin_;
     Vector2i origin_offset_;
     Vector2i origin_offset_single_move_;
@@ -177,8 +175,6 @@ private:
     double manual_angle_        = 0.;
     Vector2F manual_vec_;
     bool have_manual_stop_;
-
-    QMessageBox* std_qmessage_box_;
 };
 
 #endif // STATUSMONITORVIEW_H

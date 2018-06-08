@@ -4,6 +4,7 @@
 #include <QWheelEvent>
 #include <QMessageBox>
 #include <QDebug>
+#include <QShortcut>
 #include "pugixml/pugixml.hpp"
 
 
@@ -105,6 +106,13 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     msg_box_->setFocusPolicy( Qt::NoFocus );
 
     QString modify_map_op_str[kModifyMapOpCount] = { "start", "finish", "delete", "save"};
+    QKeySequence short_cuts_[kModifyMapOpCount] =
+    {
+        QKeySequence(tr("Alt+S", "start")),
+        QKeySequence(tr("Alt+F", "finish")),
+        QKeySequence(tr("Alt+D", "delete")),
+        QKeySequence(tr("Ctrl+S", "save"))
+    };
     for( int i = 0; i < kModifyMapOpCount; ++i )
     {
         modify_map_sub_btns_[i] = new QPushButton( this );
@@ -113,12 +121,12 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
         modify_map_sub_btns_[i]->setFocusPolicy( Qt::NoFocus );
         modify_map_sub_btns_[i]->setVisible( false );
 
+        modify_map_sub_btns_[i]->setShortcut(short_cuts_[i]);
+
         QObject::connect( modify_map_sub_btns_[i], SIGNAL(clicked()), this, SLOT(slotHandleModifyMapBtns()) );
     }
     modify_map_sub_btns_[kFinishSelectPoints]->setEnabled( false );
-
-    std_qmessage_box_ = new QMessageBox( this );
-
+    modify_map_sub_btns_[kDeletingArea]->setCheckable( true );
 
     this->setFocus();
     this->setMouseTracking( true );
@@ -157,7 +165,7 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     for( int i = 0; i < kOperationCount; ++i )
         operation_btns_[i]->setGeometry( gap_wdt, i*(btn_hgt+gap_hgt) + top_hgt, btn_wdt, btn_hgt );
 
-    int32_t sub_btn_wth = 100;
+    int32_t sub_btn_wth = 120;
     int32_t sub_btn_hgt = 25;
     int32_t sub_gap_wdt = 10;
     int32_t sub_gap_hgt = 8;
@@ -232,10 +240,26 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
     else if(modify_map_state_ == kAddingPoints && !tmp_show_current_adding_points_.empty())
     {
         QPointF current_pos = event->pos();
-        mutex_.lock();
         tmp_show_current_adding_points_[tmp_show_current_adding_points_.size()-1] = current_pos;
-        mutex_.unlock();
         update();
+    }
+    else if( modify_map_state_ == kDeletingArea && !modifyed_points_sets_.empty() )
+    {
+        QPointF current_pos = event->pos();
+        bool need_update = false;
+        for( int i = 0; i < modifyed_points_sets_.size(); ++i )
+        {
+            auto& polygon = modifyed_points_sets_.at(i);
+            bool inside = IsInsidePoly( current_pos, polygon );
+            if( inside != selected_to_delete_[i])
+            {
+                selected_to_delete_[i] = inside;
+                need_update = true;
+            }
+        }
+
+        if( need_update )
+            update();
     }
 
     QWidget::mouseMoveEvent(event);
@@ -262,7 +286,19 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
         mutex_.unlock();
         update();
 
-        qDebug() << current_adding_points_.size() << tmp_show_current_adding_points_.size();
+//        qDebug() << current_adding_points_.size() << tmp_show_current_adding_points_.size();
+    }
+    else if( modify_map_state_ == kDeletingArea && !modifyed_points_sets_.empty() )
+    {
+        for( int i = 0; i < selected_to_delete_.size(); ++i )
+            if( selected_to_delete_.at(i) )
+                modifyed_points_sets_.removeAt( i );
+
+        selected_to_delete_.clear();
+        for( int i = 0; i < modifyed_points_sets_.size(); ++i )
+            selected_to_delete_.append( false );
+
+        update();
     }
 
     QWidget::mouseReleaseEvent( event );
@@ -275,7 +311,7 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
     QPoint tmp_origin;
     if( !has_map_ )
     {
-        tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
+        tmp_origin  = origin_ + origin_offset_ + origin_offset_single_move_;
     }
     else
     {
@@ -285,31 +321,18 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
         painter.setPen(Qt::NoPen);
         painter.drawRect(rect());
 
-        // has map file, show map image and all robotics run in the map
+        // calculate left-top of the image
+        tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
+        QPointF image_left_top = tmp_origin - map_image_info_.origin_ * factor_;
+
         QPixmap pixmap = QPixmap::fromImage( image_ );
-        int32_t view_wth = this->width();
-        int32_t view_hgt = this->height();
         // scale the image
         QSize image_size = image_.size();
 
         int32_t scaled_image_wth = image_size.width() * factor_;
         int32_t scaled_image_hgt = image_size.height() * factor_;
-        int32_t scaled_image_left = ( view_wth - scaled_image_wth ) / 2;
-        int32_t scaled_image_top = ( view_hgt - scaled_image_hgt ) / 2;
-
-        QPoint tmp_offset = origin_offset_ + origin_offset_single_move_;
-        QPoint image_left_top( scaled_image_left + tmp_offset.x(), scaled_image_top + tmp_offset.y() );
         QRect target( image_left_top.x(), image_left_top.y(), scaled_image_wth, scaled_image_hgt );
-        // draw the image
-        painter.drawPixmap(target, pixmap, image_.rect());
-
-        // dram the origin
-        Vector2i tmp_origin_offset = map_image_info_.origin_ * factor_;
-        origin_ = image_left_top + tmp_origin_offset;
-        tmp_origin = origin_;
-
-        // resolution
-        resolution_ = map_image_info_.resolution_;
+        painter.drawPixmap( target, pixmap, image_.rect() );
 
         if( add_point_mode_ == kInUI )
             PaintADot( &painter, set_point_in_ui_ );
@@ -340,15 +363,22 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
     PaintASelectedArea( &painter, tmp_show_current_adding_points_ );
 
     QLinearGradient linear(QPointF(0, 0), QPointF(10,10));
-    linear.setColorAt( 0, Qt::black);
-    linear.setColorAt( 1, QColor( 80, 80, 80 ));
-
-    linear.setSpread( QGradient::RepeatSpread );
-    painter.setBrush(linear);
+    linear.setColorAt( 0, QColor( 230, 230, 230, 220));
+    linear.setColorAt( 1, QColor( 120, 120, 120, 220 ));
+    linear.setSpread( QGradient::ReflectSpread );
     painter.setPen( QPen(Qt::black, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
-    if( !modifyed_points_sets_.empty() )
-        for( int i = 0; i < modifyed_points_sets_.size(); ++i )
-            PaintASelectedArea( &painter, modifyed_points_sets_[i] );
+    if( selected_to_delete_.size() == modifyed_points_sets_.size() )
+    {
+        if( !modifyed_points_sets_.empty() )
+            for( int i = 0; i < modifyed_points_sets_.size(); ++i )
+            {
+                if( !selected_to_delete_.at(i) )
+                    painter.setBrush( linear );
+                else
+                    painter.setBrush( QColor(255,255,0,180));
+                PaintASelectedArea( &painter, modifyed_points_sets_[i] );
+            }
+    }
 
     QWidget::paintEvent( event );
 }
@@ -375,10 +405,16 @@ void StatusMonitorView::slotHandleModifyMapBtns()
 
         if( !current_adding_points_.empty() )
         {
-            if( std_qmessage_box_->question( this, "Info", "Add New obstacle?", QMessageBox::Yes | QMessageBox::No,
-                                         QMessageBox::Yes) == QMessageBox::Yes )
+            QMessageBox msg;
+            msg.setIcon( QMessageBox::Question );
+            msg.setText( "Sure you want to add a new obstacle in the map?" );
+            msg.setInformativeText( "You will have a static obstacle and you can delete it later!");
+            msg.setStandardButtons( QMessageBox::Yes | QMessageBox::No );
+            msg.setDefaultButton(QMessageBox::Yes);
+            if( msg.exec() == QMessageBox::Yes )
             {
                 modifyed_points_sets_.append( current_adding_points_ );
+                selected_to_delete_.append( false );
                 current_adding_points_.clear();
                 tmp_show_current_adding_points_.clear();
 
@@ -389,6 +425,21 @@ void StatusMonitorView::slotHandleModifyMapBtns()
     }
     else if ( btn == modify_map_sub_btns_[kDeleteArea] )
     {
+        bool checked = btn->isChecked();
+        if( checked )
+        {
+            modify_map_state_ = ModifyMapState::kDeletingArea;
+
+            modify_map_sub_btns_[kStartSelectPoints]->setEnabled( false );
+            modify_map_sub_btns_[kFinishSelectPoints]->setEnabled( false );
+        }
+        else
+        {
+            modify_map_state_ = ModifyMapState::kDoingNothing;
+
+            modify_map_sub_btns_[kStartSelectPoints]->setEnabled( true );
+            modify_map_sub_btns_[kFinishSelectPoints]->setEnabled( false );
+        }
 
     }
     else if( btn == modify_map_sub_btns_[kSaveToMap] )
@@ -496,7 +547,6 @@ void StatusMonitorView::timerEvent(QTimerEvent *event)
             manual_strength_ = 1.;
         manual_angle_ = atan2( manual_vec_.y(), manual_vec_.x() );
 
-
         if( !DOUBLE_EQUAL( manual_strength_, 0. ) )
         {
             have_manual_stop_ = false;
@@ -507,8 +557,6 @@ void StatusMonitorView::timerEvent(QTimerEvent *event)
             current_selected_robot_->sendCommand_ManualRun( 0., 0. );
             have_manual_stop_ = true;
         }
-
-//        qDebug() << manual_strength_ << " " << manual_angle_ ;
     }
     QWidget::timerEvent( event );
 }
@@ -532,12 +580,13 @@ void StatusMonitorView::wheelEvent(QWheelEvent *event)
     if( factor_ < min_factor_ )
         factor_ = min_factor_;
 
+    QPoint current_pos = event->pos();
     QPoint tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
-    Vector2i tmp_vec = ( tmp_origin - event->pos() ) / last_factor * factor_;
-    origin_offset_ = tmp_vec + event->pos() - origin_ - origin_offset_single_move_;
+    Vector2i tmp_vec = ( tmp_origin - current_pos ) / last_factor * factor_;
+    origin_offset_ = tmp_vec + current_pos - origin_ - origin_offset_single_move_;
 
-    QWidget::wheelEvent( event );
     update();
+    QWidget::wheelEvent( event );
 }
 
 void StatusMonitorView::keyPressEvent(QKeyEvent *event)
@@ -816,15 +865,17 @@ void StatusMonitorView::slotOnMapSelected( int index )
 
     // read image file
     has_map_ = false;
+    int32_t view_wth = this->width();
+    int32_t view_hgt = this->height();
+    QSize image_size;
     reader.setFileName( current_selected_map_->image_file_name_ );
     if( reader.canRead() )
     {
-        qDebug() << "read image: " << current_selected_map_->image_file_name_;
+        // qDebug() << "read image: " << current_selected_map_->image_file_name_;
+        // step1 calculate factor
         image_ = reader.read();
         reader.setFormat("pgm");
-        QSize image_size = image_.size();
-        int32_t view_wth = this->width();
-        int32_t view_hgt = this->height();
+        image_size = image_.size();
         int32_t image_wth = image_size.width();
         int32_t image_hgt = image_size.height();
 
@@ -832,14 +883,19 @@ void StatusMonitorView::slotOnMapSelected( int index )
         double factor_y = (double)view_hgt / (double)image_hgt;
         factor_ = std::min( factor_x, factor_y );
         min_factor_ = factor_ * 0.5;
-        has_map_ = true;
+
     }
     else
     {
         QString strError = reader.errorString();
-        qDebug() << "Read Error : " << strError;
+        DisplayMessage msg;
+        msg.msg_ = reader.errorString();
+        msg_box_->setMessage( msg );
+
+        return;
     }
 
+    has_map_ = true;
     // read image info
     if( getImageInfoFromFile( map_image_info_, current_selected_map_->image_info_file_name_.toStdString().c_str() ) == 0 )
     {
@@ -848,8 +904,25 @@ void StatusMonitorView::slotOnMapSelected( int index )
     else
     {
         qDebug() << "failed to load image info!";
+        return;
     }
     operation_btns_[kModifyMap]->setEnabled( has_map_ );
+
+    // calculate first origin
+    // scale the image
+    double scaled_image_wth = (double)( image_size.width() ) * factor_;
+    double scaled_image_hgt = (double)( image_size.height() ) * factor_;
+    double scaled_image_left = ( view_wth - scaled_image_wth ) * 0.5;
+    double scaled_image_top = ( view_hgt - scaled_image_hgt ) * 0.5;
+
+    QPoint tmp_offset = origin_offset_ + origin_offset_single_move_;
+    QPoint image_left_top( scaled_image_left + tmp_offset.x(), scaled_image_top + tmp_offset.y() );
+
+    Vector2i tmp_origin_offset = map_image_info_.origin_ * factor_;
+    origin_ = image_left_top + tmp_origin_offset;
+    origin_offset_ = QPoint( 0, 0 );
+    origin_offset_single_move_ = QPoint( 0, 0 );
+    resolution_ = map_image_info_.resolution_;
 
     update();
 }

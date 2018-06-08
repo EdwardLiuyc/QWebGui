@@ -128,6 +128,7 @@ void PaintRunningHistory( QPainter* painter, std::list<RobotState>& history, dou
 void PaintASelectedArea( QPainter* painter, QList<QPointF>& points );
 //void PaintAExclusionZone( QPainter* painter)
 QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
+bool IsInsidePoly( const QPointF &iPoint, const QList<QPointF> &polygon );
 
 #ifdef Q_OS_LINUX
 // create a setting file in current directory

@@ -108,7 +108,6 @@ void PaintRunningHistory(QPainter* painter, std::list<RobotState> &history, doub
             path.lineTo( points.at(i) );
 
         painter->fillPath( path, color );
-//        painter->drawPath( path );
         last_state = current_state;
     }
 }
@@ -125,4 +124,32 @@ void PaintASelectedArea(QPainter* painter, QList<QPointF> &points)
 
     path.closeSubpath();
     painter->drawPath( path );
+}
+
+bool IsInsidePoly( const QPointF &iPoint, const QList<QPointF> &polygon )
+{
+    if( polygon.size() < 2 )
+        return false;
+
+    qreal x = iPoint.x();
+    qreal y = iPoint.y();
+    int32_t left = 0;
+    int32_t right = 0;
+    int32_t j = polygon.size()-1;
+
+    for(int i = 0; i < polygon.size(); ++i )
+    {
+        if( (polygon.at(i).y() < y && polygon.at(j).y() >= y )
+            || (polygon.at(j).y() < y && polygon.at(i).y() >= y) )
+        {
+            if((y-polygon[i].y())*(polygon[i].x()-polygon[j].x())/(polygon[i].y()-polygon[j].y())+polygon[i].x()<x)
+                left++;
+            else
+                right++;
+        }
+        j = i;
+    }
+
+    return left&right;
+
 }
