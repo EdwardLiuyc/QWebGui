@@ -129,6 +129,10 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     modify_map_sub_btns_[kFinishSelectPoints]->setEnabled( false );
     modify_map_sub_btns_[kDeletingArea]->setCheckable( true );
 
+    robot_status_view_ = new RobotStatusView( this );
+    robot_status_view_->setFocusPolicy( Qt::NoFocus );
+    robot_status_view_->setVisible( false );
+
     this->setFocus();
     this->setMouseTracking( true );
 }
@@ -195,13 +199,12 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     int32_t path_mng_btn_wth = 50;
     int32_t path_mng_btn_hgt = path_mng_btn_wth;
     int32_t path_mng_btn_gap = 10;
-    int32_t path_mng_btn_left = view_wdt - gap_wdt - path_mng_btn_wth;
-    int32_t path_mng_btn_top = ( view_hgt - path_mng_btn_hgt * kPathMngOperationCount
-            - path_mng_btn_gap * (path_mng_btn_gap - 1 ) ) / 2;
+    int32_t path_mng_btn_left = ( view_wdt - path_mng_btn_wth * kPathMngOperationCount - path_mng_btn_gap * (kPathMngOperationCount - 1 ) ) * 0.5;
+    int32_t path_mng_btn_top = ( view_hgt - path_mng_btn_gap - path_mng_btn_hgt );
     for( int i = 0; i < kPathMngOperationCount; ++i )
     {
-        path_mng_btns_[i]->setGeometry( path_mng_btn_left
-                                        , path_mng_btn_top + i * (path_mng_btn_hgt+path_mng_btn_gap)
+        path_mng_btns_[i]->setGeometry( path_mng_btn_left + i * (path_mng_btn_wth+path_mng_btn_gap)
+                                        , path_mng_btn_top
                                         , path_mng_btn_wth, path_mng_btn_hgt);
         path_mng_btns_[i]->setIconSize( path_mng_btns_[i]->size() );
     }
@@ -209,8 +212,15 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     // message box
     int32_t msg_box_wth = 400;
     int32_t msg_box_hgt = 80;
-    int32_t msg_box_left = view_wdt - gap_wdt - msg_box_wth;
-    msg_box_->setGeometry( msg_box_left, top_hgt, msg_box_wth, msg_box_hgt );
+    int32_t msg_box_left = ((view_wdt-msg_box_wth) >> 1);
+    int32_t msg_box_top = ((view_hgt-msg_box_hgt) >> 1);
+    msg_box_->setGeometry( msg_box_left, msg_box_top, msg_box_wth, msg_box_hgt );
+
+    // status view
+    int32_t status_view_wth = 220;
+    int32_t status_view_hgt = view_hgt - top_hgt * 2;
+    int32_t status_view_left = view_wdt - gap_wdt - status_view_wth;
+    robot_status_view_->setGeometry( status_view_left, top_hgt, status_view_wth, status_view_hgt);
 
     QWidget::resizeEvent( event );
 }
@@ -218,10 +228,10 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
 void StatusMonitorView::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::RightButton)
-        start_pos_for_move_ = event->pos();
+        start_pos_for_mouse_move_ = event->pos();
     else if( event->button() == Qt::LeftButton )
     {
-        if( add_point_mode_ == kInUI && has_map_ )
+        if( add_point_mode_ == kInUI && has_map_ && modify_map_state_ == kDoingNothing )
         {
             QPointF current_pos = event->pos();
             QPoint tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
@@ -243,13 +253,14 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
 {
     if( event->buttons() & Qt::RightButton )
     {
-        origin_offset_single_move_ =  event->pos() - start_pos_for_move_;
+        origin_offset_single_move_ =  event->pos() - start_pos_for_mouse_move_;
         update();
     }
     else if(modify_map_state_ == kAddingPoints && !tmp_show_current_adding_points_.empty())
     {
         QPointF current_pos = event->pos();
-        tmp_show_current_adding_points_[tmp_show_current_adding_points_.size()-1] = current_pos;
+        tmp_show_current_adding_points_[tmp_show_current_adding_points_.size()-1]
+                = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
         update();
     }
     else if( modify_map_state_ == kDeletingArea && !modifyed_points_sets_.empty() )
@@ -286,12 +297,13 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
     else if( event->button() == Qt::LeftButton && modify_map_state_ == kAddingPoints)
     {
         QPointF current_pos =  event->pos();
-        current_adding_points_.append( current_pos );
+        QPointF relative_pos_in_map = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
+        current_adding_points_.append( relative_pos_in_map );
 
         mutex_.lock();
         tmp_show_current_adding_points_.clear();
         tmp_show_current_adding_points_.append( current_adding_points_ );
-        tmp_show_current_adding_points_.append( current_pos );
+        tmp_show_current_adding_points_.append( relative_pos_in_map );
         mutex_.unlock();
         update();
     }
@@ -376,7 +388,7 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
 
     painter.setBrush( QBrush(QColor(200,200,200,128)));
     painter.setPen( QPen(Qt::black, 1, Qt::DashDotLine, Qt::RoundCap, Qt::RoundJoin) );
-    PaintASelectedArea( &painter, tmp_show_current_adding_points_ );
+    PaintASelectedMapArea( &painter, tmp_show_current_adding_points_, resolution_, tmp_origin, factor_ );
 
     QLinearGradient linear(QPointF(0, 0), QPointF(10,10));
     linear.setColorAt( 0, QColor( 230, 230, 230, 220));
@@ -392,7 +404,7 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
                     painter.setBrush( linear );
                 else
                     painter.setBrush( QColor(255,255,0,180));
-                PaintASelectedArea( &painter, modifyed_points_sets_[i] );
+                PaintASelectedMapArea( &painter, modifyed_points_sets_[i], resolution_, tmp_origin, factor_ );
             }
     }
 
@@ -800,6 +812,7 @@ void StatusMonitorView::slotOnRobotSelected(int index)
     if( index <= 0 )
     {
         current_selected_robot_ = NULL;
+        robot_status_view_->setCurrentRobot(current_selected_robot_);
         return;
     }
 
@@ -817,7 +830,7 @@ void StatusMonitorView::slotOnRobotSelected(int index)
 
     QObject::connect( current_selected_robot_, SIGNAL(signalRobotRcvNormalMsg(DisplayMessage&)), this, SLOT(slotOnRcvCurrentRobotMsg(DisplayMessage&)));
     current_selected_robot_->connectSocket();
-
+    robot_status_view_->setCurrentRobot(current_selected_robot_);
 }
 
 void StatusMonitorView::slotOnRcvCurrentRobotMsg(DisplayMessage &msg)

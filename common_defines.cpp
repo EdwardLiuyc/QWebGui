@@ -144,6 +144,18 @@ void PaintASelectedArea(QPainter* painter, QList<QPointF> &points)
     painter->drawPath( path );
 }
 
+void PaintASelectedMapArea( QPainter* painter, QList<QPointF>& points_in_map, double resolution, QPoint origin, double factor )
+{
+    if( !painter || points_in_map.size() <= 1 )
+        return;
+
+    QList<QPointF> points_in_screen;
+    for( int i = 0; i < points_in_map.size(); ++i )
+        points_in_screen.append( CalculateScreenPos(points_in_map.at(i), resolution, origin, factor ) );
+
+    PaintASelectedArea(painter, points_in_screen);
+}
+
 bool IsInsidePoly( const QPointF &iPoint, const QList<QPointF> &polygon )
 {
     if( polygon.size() < 2 )

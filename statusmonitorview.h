@@ -15,6 +15,7 @@
 #include <QCheckBox>
 #include "robotselectview.h"
 #include "msgbox.h"
+#include "robotstatusview.h"
 
 enum MonitorMode
 {
@@ -124,6 +125,7 @@ private:
     QPushButton*    return_btn_;
     QPushButton*    switch_btn_;
     RobotSelectView* robot_select_view_;
+    RobotStatusView* robot_status_view_;
     QComboBox*      map_select_box_;
     QComboBox*      robot_select_box_;
     MsgBox*         msg_box_;
@@ -137,9 +139,9 @@ private:
     // ** for paint **
     MonitorMode monitor_mode_;
     PathMngMode path_manage_mode_;
-    AddPointMode add_point_mode_ = kInRobot;
-    RobotRunningMode robot_running_mode_ = RobotRunningMode::kManual;
-    ModifyMapState  modify_map_state_ = ModifyMapState::kDoingNothing;
+    AddPointMode add_point_mode_            = kInRobot;
+    RobotRunningMode robot_running_mode_    = RobotRunningMode::kManual;
+    ModifyMapState  modify_map_state_       = ModifyMapState::kDoingNothing;
     QPointF last_target_point_set_in_ui_;
     std::list<QPointF> target_points_set_in_ui_;
     bool need_restart_record_target_list_;
@@ -148,18 +150,19 @@ private:
     double factor_;
     double min_factor_;
     double resolution_;
-    QPoint start_pos_for_move_;
-    QMutex mutex_;
+    QPoint start_pos_for_mouse_move_;
 
+    // ** modify the map ( add obstacle area ) **
+    QMutex mutex_;
     QList<QPointF> current_adding_points_;
     QList<QPointF> tmp_show_current_adding_points_;
-    QPointF current_start_pos_for_marquee_, current_end_pos_for_marquee_;
-
     QList< QList<QPointF> > modifyed_points_sets_;
     QList<bool> selected_to_delete_;
-    QPoint origin_;
-    Vector2i origin_offset_;
-    Vector2i origin_offset_single_move_;
+
+    // ** origin **
+    QPoint      origin_;
+    Vector2i    origin_offset_;
+    Vector2i    origin_offset_single_move_;
 
     QImage image_;
     MapImageInfo map_image_info_;
@@ -167,7 +170,7 @@ private:
     int32_t timer_update_robots_;
     int32_t timer_manual_operating_;
 
-    // for manual operation
+    // ** for manual operation **
     enum DirKey
     {
         kUp, kDown, kLeft, kRight, kKeyCount

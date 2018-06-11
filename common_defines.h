@@ -127,6 +127,7 @@ void PaintADot(QPainter* painter, QPointF& pos );
 void PaintATargetPoint( QPainter* painter, QPointF& pos );
 void PaintRunningHistory( QPainter* painter, std::list<RobotState>& history, double robot_width, double resolution, double factor, QPoint origin );
 void PaintASelectedArea( QPainter* painter, QList<QPointF>& points );
+void PaintASelectedMapArea( QPainter* painter, QList<QPointF>& points_in_map, double resolution, QPoint origin, double factor );
 QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
 QPointF CalculateRobotPos( QPointF screen_pos, double resolution, QPoint origin, double factor );
 bool IsInsidePoly( const QPointF &iPoint, const QList<QPointF> &polygon );
