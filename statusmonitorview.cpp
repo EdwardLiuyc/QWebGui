@@ -18,6 +18,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     , current_selected_robot_( NULL )
     , monitor_mode_( mode )
     , path_manage_mode_( kOldMode )
+    , last_target_point_set_in_ui_( 0., 0. )
     , need_restart_record_target_list_( false )
     , has_map_( false )
     , got_first_origin_( false )
@@ -29,15 +30,42 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     , timer_update_robots_( startTimer(500) )
     , timer_manual_operating_( startTimer(500) )
     , have_manual_stop_( true )
+    , in_path_mode_( false )
+    , path_manage_state_( PICKING_FIRST_POINT )
 {
-    QString operations_str[kOperationCount] = {"Robots", "Maps", "Manual", "Halt", "Add In Robot", "Modify Map"};
+    QString operation_str[kOperationCount] = {"Robots", "Maps", "Manual", "Halt", "Add In Robot", "Modify Map", "Manage Path"};
+    QString operation_help_tip[kOperationCount] =
+    {
+        "Select a robot and it will be connected \n"
+        "automatically!",
+
+        "Select a map",
+
+        "You can change the running mode between \n"
+        "\"Manual\" and \"Auto\" if you have \n"
+        "connected to a robot",
+
+        "You can Halt or Restart the robot if connected",
+
+        "Add the target points in UI or Robot \n"
+        "itself.",
+
+        "In this mode, you can add some obstacle \n"
+        "area into the map, but first you should \n"
+        "have loaded a map, this function is \n"
+        "enabled only in Path Management Mode.",
+
+        ""
+
+    };
     for( int i = 0; i < kOperationCount; ++i )
     {
         operation_btns_[i] = new QPushButton(this);
-        operation_btns_[i]->setText( operations_str[i] );
+        operation_btns_[i]->setText( operation_str[i] );
         operation_btns_[i]->setFont( SYSTEM_UI_FONT_10_BOLD );
         operation_btns_[i]->setFocusPolicy( Qt::NoFocus );
         operation_btns_[i]->setCheckable( true );
+        operation_btns_[i]->setToolTip( operation_help_tip[i] );
     }
     operation_btns_[kModifyMap]->setEnabled( has_map_ );
     QObject::connect( operation_btns_[kSelectRobot], SIGNAL(toggled(bool)), this, SLOT(slotOnSelectRobotBtnClicked(bool)));
@@ -46,6 +74,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     QObject::connect( operation_btns_[kRunOrHalt], SIGNAL(toggled(bool)), this, SLOT(slotOnRunOrHaltBtnClicked(bool)));
     QObject::connect( operation_btns_[kChangeAddPointMode], SIGNAL(toggled(bool)), this, SLOT(slotOnChangeAddPointModeClicked(bool)));
     QObject::connect( operation_btns_[kModifyMap], SIGNAL(toggled(bool)), this, SLOT(slotOnModifyMapClicked(bool)));
+    QObject::connect( operation_btns_[kManagePath], SIGNAL(toggled(bool)), this, SLOT(slotOnManagePathClicked(bool)));
 
     QString image_paths[kPathMngOperationCount] =
     {
@@ -217,7 +246,7 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     msg_box_->setGeometry( msg_box_left, msg_box_top, msg_box_wth, msg_box_hgt );
 
     // status view
-    int32_t status_view_wth = 220;
+    int32_t status_view_wth = 230;
     int32_t status_view_hgt = view_hgt - top_hgt * 2;
     int32_t status_view_left = view_wdt - gap_wdt - status_view_wth;
     robot_status_view_->setGeometry( status_view_left, top_hgt, status_view_wth, status_view_hgt);
@@ -231,7 +260,50 @@ void StatusMonitorView::mousePressEvent(QMouseEvent *event)
         start_pos_for_mouse_move_ = event->pos();
     else if( event->button() == Qt::LeftButton )
     {
-        if( add_point_mode_ == kInUI && has_map_ && modify_map_state_ == kDoingNothing )
+        if( in_path_mode_ )
+        {
+            QPointF current_pos = event->pos();
+            double min_distance = 1.e10;
+            int32_t index = -1;
+            for( int i = 0; i < target_points_.size(); ++i )
+            {
+
+                QPointF point_in_screen = CalculateScreenPos( target_points_.at(i), resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
+                qDebug() << point_in_screen;
+                double dist = CalculateDistance( point_in_screen, current_pos );
+                if( dist <= min_distance )
+                {
+                    index = i;
+                    min_distance = dist;
+                }
+            }
+
+            qDebug() << min_distance;
+
+            if( min_distance <= 20 )
+            {
+                switch ( path_manage_state_ )
+                {
+                case PICKING_FIRST_POINT:
+                    path_manage_state_ = PICKING_CONNECTING_POINT;
+                    qDebug() << "~~~~~~";
+                    break;
+                case PICKING_CONNECTING_POINT:
+                    break;
+                case PICKING_PATH_START:
+                    break;
+                case PICKING_PATH_END:
+                    break;
+                case PICKING_MODIFYING_PATH:
+                    break;
+                default:
+                    break;
+                }
+            }
+
+
+        }
+        else if( add_point_mode_ == kInUI && has_map_ && modify_map_state_ == kDoingNothing )
         {
             QPointF current_pos = event->pos();
             QPoint tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
@@ -239,7 +311,7 @@ void StatusMonitorView::mousePressEvent(QMouseEvent *event)
 
             if( need_restart_record_target_list_ )
             {
-                target_points_set_in_ui_.clear();
+                target_points_.clear();
                 need_restart_record_target_list_ = false;
             }
             update();
@@ -251,26 +323,26 @@ void StatusMonitorView::mousePressEvent(QMouseEvent *event)
 
 void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
 {
+    QPointF current_pos = event->pos();
     if( event->buttons() & Qt::RightButton )
-    {
+    {   
         origin_offset_single_move_ =  event->pos() - start_pos_for_mouse_move_;
         update();
     }
     else if(modify_map_state_ == kAddingPoints && !tmp_show_current_adding_points_.empty())
     {
-        QPointF current_pos = event->pos();
         tmp_show_current_adding_points_[tmp_show_current_adding_points_.size()-1]
                 = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
         update();
     }
     else if( modify_map_state_ == kDeletingArea && !modifyed_points_sets_.empty() )
     {
-        QPointF current_pos = event->pos();
+        QPointF current_pos_in_map = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
         bool need_update = false;
         for( int i = 0; i < modifyed_points_sets_.size(); ++i )
         {
             auto& polygon = modifyed_points_sets_.at(i);
-            bool inside = IsInsidePoly( current_pos, polygon );
+            bool inside = IsInsidePoly( current_pos_in_map, polygon );
             if( inside != selected_to_delete_[i])
             {
                 selected_to_delete_[i] = inside;
@@ -280,6 +352,10 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
 
         if( need_update )
             update();
+    }
+    else if( in_path_mode_ && !target_points_.empty() )
+    {
+        QPointF current_pos_in_map = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
     }
 
     QWidget::mouseMoveEvent(event);
@@ -292,7 +368,6 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
         origin_offset_ += origin_offset_single_move_;
         origin_offset_single_move_.setX( 0 );
         origin_offset_single_move_.setY( 0 );
-
     }
     else if( event->button() == Qt::LeftButton && modify_map_state_ == kAddingPoints)
     {
@@ -318,6 +393,10 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
             selected_to_delete_.append( false );
 
         update();
+    }
+    else if( in_path_mode_ && !target_points_.empty())
+    {
+
     }
 
     QWidget::mouseReleaseEvent( event );
@@ -352,15 +431,15 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
         QRect target( image_left_top.x(), image_left_top.y(), scaled_image_wth, scaled_image_hgt );
         painter.drawPixmap( target, pixmap, image_.rect() );
 
+        QPointF screen_point;
+        for( auto& target_point: target_points_ )
+        {
+            screen_point = CalculateScreenPos( target_point, resolution_, tmp_origin, factor_);
+            PaintATargetPoint( &painter, screen_point );
+        }
+
         if( add_point_mode_ == kInUI )
         {
-            QPointF screen_point;
-            for( auto& target_point: target_points_set_in_ui_ )
-            {
-                screen_point = CalculateScreenPos( target_point, resolution_, tmp_origin, factor_);
-                PaintATargetPoint( &painter, screen_point );
-            }
-
             screen_point = CalculateScreenPos( last_target_point_set_in_ui_, resolution_, tmp_origin, factor_);
             PaintATargetPoint( &painter, screen_point );
         }
@@ -368,10 +447,10 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
 
     paintACoordSystem( &painter, tmp_origin );
 
-    QPen pen( Qt::blue, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin );
-    painter.setPen(pen);
-    if( !robots_->empty() )
+    if( !in_path_mode_ && !robots_->empty() )
     {
+        QPen pen( Qt::blue, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin );
+        painter.setPen(pen);
         for( Robot& robot: *robots_ )
             if( robot.connected_ )
             {
@@ -472,7 +551,14 @@ void StatusMonitorView::slotHandleModifyMapBtns()
     }
     else if( btn == modify_map_sub_btns_[kSaveToMap] )
     {
+        modify_map_state_ = ModifyMapState::kDoingNothing;
+        if( modifyed_points_sets_.empty() || currentConnected() != 0 )
+            return;
 
+        for( int i = 0; i < modifyed_points_sets_.size(); ++i )
+            current_selected_robot_->sendCommand_AddObstacleArea( modifyed_points_sets_.at(i));
+
+        current_selected_robot_->sendCommand_CommandFinish("AddObstacleArea", 1.);
     }
 }
 
@@ -678,6 +764,32 @@ void StatusMonitorView::slotOnModifyMapClicked(bool checked)
 {
     for( int i = 0; i < kModifyMapOpCount; ++i )
         modify_map_sub_btns_[i]->setVisible( checked );
+
+    operation_btns_[kManagePath]->setEnabled( !checked );
+}
+
+void StatusMonitorView::slotOnManagePathClicked(bool checked)
+{
+    if( target_points_.empty() )
+    {
+        operation_btns_[kManagePath]->setChecked( false );
+        DisplayMessage msg;
+        msg.level_ = kErrorMsg;
+
+        msg.msg_ = "There is no target point!";
+        msg_box_->setMessage( msg );
+        return;
+    }
+
+    for( int i = 0; i < kManagePath; ++i )
+    {
+        if( i != kModifyMap )
+            operation_btns_[i]->setEnabled( !checked );
+        else
+            operation_btns_[i]->setEnabled( !checked && has_map_ );
+    }
+    in_path_mode_ = checked;
+    update();
 }
 
 void StatusMonitorView::slotOnSwitchBtnClicked()
@@ -705,12 +817,12 @@ void StatusMonitorView::slotOnChangeRunningModeClicked(bool checked)
     }
     else
     {
-        if( !current_selected_robot_ || !current_selected_robot_->connected_)
+        if( currentConnected() != 0 )
         {
-            qDebug() << "not selected or not connected!";
             operation_btns_[kChangeRunningMode]->setChecked( false );
             return;
         }
+
         robot_running_mode_ = checked ? RobotRunningMode::kAuto : RobotRunningMode::kManual;
         current_selected_robot_->sendCommand_SetRunningMode( robot_running_mode_ );
     }
@@ -730,9 +842,8 @@ void StatusMonitorView::slotOnRunOrHaltBtnClicked(bool checked)
     }
     else
     {
-        if( !current_selected_robot_ || !current_selected_robot_->connected_)
+        if( currentConnected() != 0 )
         {
-            qDebug() << "not selected or not connected!";
             operation_btns_[kRunOrHalt]->setChecked( false );
             return;
         }
@@ -913,8 +1024,8 @@ void StatusMonitorView::slotOnMapSelected( int index )
     }
     else
     {
-        QString strError = reader.errorString();
         DisplayMessage msg;
+        msg.level_ = kErrorMsg;
         msg.msg_ = reader.errorString();
         msg_box_->setMessage( msg );
 
@@ -993,42 +1104,64 @@ int32_t StatusMonitorView::getImageInfoFromFile(MapImageInfo &info, const char *
 
 void StatusMonitorView::slotOnAddPoint()
 {
-    if( !current_selected_robot_ || !current_selected_robot_->connected_)
-    {
-        qDebug() << "not selected or not connected!";
+    if( currentConnected() != 0 )
         return;
-    }
+
     if( add_point_mode_ == kInRobot )
+    {
         current_selected_robot_->sendCommand_AddPoint();
+        QPointF current_robot_pos( current_selected_robot_->state_.x, current_selected_robot_->state_.y );
+        target_points_.push_back( current_robot_pos );
+    }
     else if( add_point_mode_ == kInUI )
     {
         current_selected_robot_->sendCommand_AddPoint( last_target_point_set_in_ui_.x(), last_target_point_set_in_ui_.y(), 0.);
         qDebug() << last_target_point_set_in_ui_;
 
-        target_points_set_in_ui_.push_back( last_target_point_set_in_ui_ );
+        target_points_.push_back( last_target_point_set_in_ui_ );
     }
+
+    qDebug() << "size = " << target_points_.size();
+    update();
 }
 
 void StatusMonitorView::slotOnSetLoopMode()
 {
-    if( !current_selected_robot_ || !current_selected_robot_->connected_)
-    {
-        qDebug() << "not selected or not connected!";
+    if( currentConnected() != 0 )
         return;
-    }
+
     current_selected_robot_->sendCommand_SetLoopMode();
     need_restart_record_target_list_ = true;
 }
 
 void StatusMonitorView::slotOnSetReverseMode()
 {
-    if( !current_selected_robot_ || !current_selected_robot_->connected_)
-    {
-        qDebug() << "not selected or not connected!";
+    if( currentConnected() != 0 )
         return;
-    }
+
     current_selected_robot_->sendCommand_SetReverseMode();
     need_restart_record_target_list_ = true;
+}
+
+int32_t StatusMonitorView::currentConnected()
+{
+    DisplayMessage msg;
+    msg.level_ = kErrorMsg;
+
+    if( !current_selected_robot_ )
+    {
+        msg.msg_ = "No Robot Selected!";
+        msg_box_->setMessage( msg );
+        return -1;
+    }
+    if( !current_selected_robot_->connected_ )
+    {
+        msg.msg_ = "Robot Not Connected!";
+        msg_box_->setMessage( msg );
+        return -1;
+    }
+
+    return 0;
 }
 
 

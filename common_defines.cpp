@@ -1,4 +1,5 @@
 #include "common_defines.h"
+#include <QtMath>
 
 void paintACoordSystem(QPainter *painter, QPoint &org)
 {
@@ -191,4 +192,12 @@ QPointF CalculateRobotPos( QPointF screen_pos, double resolution, QPoint origin,
     tmp_vector /= factor;
 
     return QPointF( tmp_vector.x(), -tmp_vector.y() );
+}
+
+double CalculateDistance( QPointF& point1, QPointF& point2 )
+{
+    double delta_x = point1.x() - point2.x();
+    double delta_y = point1.y() - point2.y();
+
+    return qSqrt( delta_x * delta_x + delta_y * delta_y );
 }

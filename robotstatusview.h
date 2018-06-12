@@ -45,6 +45,7 @@ private:
     // Over All
     enum OverAllLabel
     {
+        kConnected, kConnectedStatusValue,
         kX, kXValue, kY, kYValue, KYaw, KYawValue,
         kBattery, KBatteryValue,
         kErr, kErrValue,

@@ -13,6 +13,7 @@
 #include <QImageReader>
 #include <QImage>
 #include <QCheckBox>
+#include <QtMath>
 #include "robotselectview.h"
 #include "msgbox.h"
 #include "robotstatusview.h"
@@ -44,6 +45,7 @@ public:
         kRunOrHalt,
         kChangeAddPointMode,
         kModifyMap,
+        kManagePath,
         kOperationCount,
     };
 
@@ -90,7 +92,7 @@ protected:
     void keyReleaseEvent(QKeyEvent *event);
 
     void hideSwitchableWidgets();
-
+    int32_t currentConnected();
     int32_t getImageInfoFromFile( MapImageInfo& info, const char* info_filename );
 
 signals:
@@ -105,6 +107,7 @@ public slots:
     void slotOnRunOrHaltBtnClicked( bool checked );
     void slotOnChangeAddPointModeClicked( bool checked );
     void slotOnModifyMapClicked( bool checked );
+    void slotOnManagePathClicked( bool checked );
     void slotOnSwitchBtnClicked();
     void slotOnMapSelected( int index );
     void slotOnRobotSelected( int index );
@@ -143,7 +146,12 @@ private:
     RobotRunningMode robot_running_mode_    = RobotRunningMode::kManual;
     ModifyMapState  modify_map_state_       = ModifyMapState::kDoingNothing;
     QPointF last_target_point_set_in_ui_;
-    std::list<QPointF> target_points_set_in_ui_;
+    enum TargetPointPaintMode
+    {
+        kNothingToPaint, kNearThePoint, kPointWaitingSelect, kPointSelected
+    };
+    QList<QPointF> target_points_;
+    QList<TargetPointPaintMode> target_points_paint_mode_;
     bool need_restart_record_target_list_;
     bool has_map_;
     bool got_first_origin_;
@@ -180,6 +188,18 @@ private:
     double manual_angle_        = 0.;
     Vector2F manual_vec_;
     bool have_manual_stop_;
+
+    // ** path manage **
+    bool in_path_mode_;
+    enum PathManageState
+    {
+        PICKING_FIRST_POINT,
+        PICKING_CONNECTING_POINT,
+        PICKING_PATH_START,
+        PICKING_PATH_END,
+        PICKING_MODIFYING_PATH
+    };
+    PathManageState path_manage_state_;
 };
 
 #endif // STATUSMONITORVIEW_H

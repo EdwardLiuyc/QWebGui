@@ -108,6 +108,11 @@ struct GpsPosition
 {
     double x, y, z;
     int32_t mode;
+
+    GpsPosition()
+        : x(0.), y(0.), z(0.)
+        , mode( 0 )
+    {}
 };
 
 struct RobotState
@@ -118,6 +123,36 @@ struct RobotState
     int32_t error;
 
     GpsPosition gps_pos;
+
+    RobotState()
+        : x( 0. )
+        , y( 0. )
+        , yaw( 0. )
+        , battery( 1. )
+        , error( 0 )
+    {}
+
+};
+
+struct NodeInPath
+{
+    int32_t id;
+    double x, y;
+    std::vector<int32_t> linked_nodes;
+    AddPointType type;
+
+    NodeInPath()
+        : id( -1 )
+        , x( 0. )
+        , y( 0. )
+        , linked_nodes()
+        , type( AddPointType::kNormal )
+    {}
+};
+
+struct Path
+{
+    std::list<NodeInPath> nodes;
 };
 
 
@@ -131,6 +166,7 @@ void PaintASelectedMapArea( QPainter* painter, QList<QPointF>& points_in_map, do
 QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
 QPointF CalculateRobotPos( QPointF screen_pos, double resolution, QPoint origin, double factor );
 bool IsInsidePoly( const QPointF &iPoint, const QList<QPointF> &polygon );
+double CalculateDistance( QPointF& point1, QPointF& point2 );
 
 #ifdef Q_OS_LINUX
 // create a setting file in current directory

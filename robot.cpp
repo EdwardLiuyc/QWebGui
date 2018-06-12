@@ -12,6 +12,7 @@ Robot::Robot(QObject *parent)
     , selected_for_connect_( false )
     , connected_( false )
     , history_count_( DEFAULT_HISTORY_COUNT )
+    , future_count_( DEFAULT_HISTORY_COUNT )
 {
     connect( &socket_, SIGNAL(connected()), this, SLOT(slotOnSocketConnected()));
     connect( &socket_, SIGNAL(disconnected()), this, SLOT(slotOnSocketDisconnected()));
@@ -343,12 +344,40 @@ void Robot::sendCommand_SetRunningMode(RobotRunningMode mode)
 #endif
 }
 
+void Robot::sendCommand_CommandFinish(QString cmd_name, double val)
+{
+    int32_t id = 1;
+    QString cmd = cmd_name + "Finish";
+    const int32_t value_num = 1;
+    double value[value_num];
+    value[0] = val;
+
+    sendCommand( id, cmd, value, value_num);
+}
+
 void Robot::sendCommand_ManualRun(double strength, double angle)
 {
     int32_t id = 1;
     QString cmd = "ManualMove";
     const int32_t value_num = 2;
     double value[value_num] = { strength, angle };
+
+    sendCommand( id, cmd, value, value_num);
+}
+
+void Robot::sendCommand_AddObstacleArea(const QList<QPointF> &polygon_in_map)
+{
+    qDebug() << __FUNCTION__ ;
+
+    int32_t id = 1;
+    QString cmd = "AddObstacleArea";
+    const int32_t value_num = polygon_in_map.size() * 2;
+    double value[value_num];
+    for( int32_t i = 0; i < polygon_in_map.size(); ++i )
+    {
+        value[i*2] = polygon_in_map.at(i).x();
+        value[i*2+1] = polygon_in_map.at(i).y();
+    }
 
     sendCommand( id, cmd, value, value_num);
 }

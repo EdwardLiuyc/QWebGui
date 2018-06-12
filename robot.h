@@ -30,6 +30,8 @@ public:
     void sendCommand_Halt();
     void sendCommand_SetRunningMode( RobotRunningMode mode );
     void sendCommand_ManualRun( double strength, double angle );
+    void sendCommand_AddObstacleArea( const QList<QPointF>& polygon_in_map );
+    void sendCommand_CommandFinish(QString cmd_name, double val );
 
     bool selected_for_connect_;
     bool connected_;
@@ -60,7 +62,9 @@ private:
     QUrl            url_;
 
     std::list<RobotState> state_history_;
+    std::list<RobotState> state_future_;
     int32_t history_count_;
+    int32_t future_count_;
 
     int32_t parseRecievedMsg(QString& msg);
 };
