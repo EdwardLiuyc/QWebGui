@@ -134,6 +134,14 @@ struct RobotState
 
 };
 
+struct PointWithInfo
+{
+    int32_t id;
+    QPointF point;
+
+    std::vector<int32_t> linked_nodes;
+};
+
 struct NodeInPath
 {
     int32_t id;

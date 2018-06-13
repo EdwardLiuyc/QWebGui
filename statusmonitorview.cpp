@@ -5,6 +5,7 @@
 #include <QMessageBox>
 #include <QDebug>
 #include <QShortcut>
+#include <algorithm>
 #include "pugixml/pugixml.hpp"
 
 
@@ -31,7 +32,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
     , timer_update_robots_( startTimer(500) )
     , timer_manual_operating_( startTimer(500) )
     , have_manual_stop_( true )
-    , in_path_mode_( false )
+    , is_managing_path_( false )
     , path_manage_state_( PICKING_FIRST_POINT )
 {
     QString operation_str[kOperationCount] = {"Robots", "Maps", "Manual", "Halt", "Manage Points", "Modify Map", "Manage Path"};
@@ -161,7 +162,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
 
     QString points_mng_op_str[kPointsMngOperationCount] =
     {
-        "Add in Robot", "Delete Point"
+        "add in robot", "delete point"
     };
     for( int i = 0; i < kPointsMngOperationCount; ++i )
     {
@@ -173,6 +174,22 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
         point_mng_sub_btns_[i]->setVisible( false );
 
         QObject::connect( point_mng_sub_btns_[i], SIGNAL(clicked()), this, SLOT(slotHandlePointsMngBtns()) );
+    }
+
+    QString path_mng_sub_btn_str[kPathMngSubOperationCount] =
+    {
+        "connect points", "pick ends", "modify a path"
+    };
+    for( int i = 0; i < kPathMngSubOperationCount; ++i )
+    {
+        path_mng_sub_btns_[i] = new QPushButton( this );
+        path_mng_sub_btns_[i]->setText( path_mng_sub_btn_str[i] );
+        path_mng_sub_btns_[i]->setFont( SYSTEM_UI_FONT_10_BOLD );
+        path_mng_sub_btns_[i]->setFocusPolicy( Qt::NoFocus );
+        path_mng_sub_btns_[i]->setCheckable( true );
+        path_mng_sub_btns_[i]->setVisible( false );
+
+        QObject::connect( path_mng_sub_btns_[i], SIGNAL(clicked()), this, SLOT(slotHandlePathMngSubBtns()) );
     }
 
     robot_status_view_ = new RobotStatusView( this );
@@ -230,6 +247,11 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
                                              , operation_btns_[kManagePoints]->geometry().top() + i * (sub_btn_hgt+sub_gap_hgt)
                                              , sub_btn_wth
                                              , sub_btn_hgt);
+    for( int i = 0; i < kPathMngSubOperationCount; ++i )
+        path_mng_sub_btns_[i]->setGeometry( gap_wdt + btn_wdt + sub_gap_wdt
+                                            , operation_btns_[kManagePath]->geometry().top() + i * (sub_btn_hgt+sub_gap_hgt)
+                                            , sub_btn_wth
+                                            , sub_btn_hgt);
 
 
     int32_t switch_btn_hgt = btn_hgt * 2;
@@ -251,7 +273,7 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     int32_t path_mng_btn_hgt = path_mng_btn_wth;
     int32_t path_mng_btn_gap = 10;
     int32_t path_mng_btn_left = ( view_wdt - path_mng_btn_wth * kPathMngOperationCount - path_mng_btn_gap * (kPathMngOperationCount - 1 ) ) * 0.5;
-    int32_t path_mng_btn_top = ( view_hgt - path_mng_btn_gap - path_mng_btn_hgt );
+    int32_t path_mng_btn_top = ( view_hgt - top_hgt - path_mng_btn_hgt );
     for( int i = 0; i < kPathMngOperationCount; ++i )
     {
         path_mng_btns_[i]->setGeometry( path_mng_btn_left + i * (path_mng_btn_wth+path_mng_btn_gap)
@@ -276,7 +298,7 @@ void StatusMonitorView::resizeEvent(QResizeEvent *event)
     QWidget::resizeEvent( event );
 }
 
-int32_t StatusMonitorView::findTheNearestPoint(QPointF &src_point, QList<QPointF> &dst_points, double *dis)
+int32_t StatusMonitorView::findTheNearestPoint(QPointF &src_point, QList<PointWithInfo> &dst_points, double *dis)
 {
     if( !dis || dst_points.empty() )
         return -1;
@@ -285,7 +307,7 @@ int32_t StatusMonitorView::findTheNearestPoint(QPointF &src_point, QList<QPointF
     int32_t index = -1;
     for( int i = 0; i < dst_points.size(); ++i )
     {
-        double dist = CalculateDistance( dst_points.at(i), src_point );
+        double dist = CalculateDistance( dst_points.at(i).point, src_point );
         if( dist <= min_distance )
         {
             index = i;
@@ -303,41 +325,45 @@ void StatusMonitorView::mousePressEvent(QMouseEvent *event)
         start_pos_for_mouse_move_ = event->pos();
     else if( event->button() == Qt::LeftButton )
     {
-        if( in_path_mode_ )
+        if( is_managing_path_ )
         {
-            QPointF current_pos = event->pos();
-            QPointF current_map_pos = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
-            double min_distance = 0.;
-            int32_t index = findTheNearestPoint( current_map_pos, target_points_, &min_distance );
-
-            // change to distance in screen
-            min_distance /= resolution_;
-            min_distance *= factor_;
-
-            qDebug() << min_distance;
-
-            if( min_distance <= 20 && index >= 0 )
+            int32_t current_index = -1;
+            for( int i = 0; i < points_maybe_selected_.size(); ++i )
             {
-                switch ( path_manage_state_ )
+                if( points_maybe_selected_.at(i) )
                 {
-                case PICKING_FIRST_POINT:
-                    path_manage_state_ = PICKING_CONNECTING_POINT;
-                    current_first_point_index_ = index;
-                    break;
-                case PICKING_CONNECTING_POINT:
-                    break;
-                case PICKING_PATH_START:
-                    break;
-                case PICKING_PATH_END:
-                    break;
-                case PICKING_MODIFYING_PATH:
-                    break;
-                default:
+                    current_index = i;
                     break;
                 }
             }
+
+            mutex_.lock();
+            switch ( path_manage_state_ )
+            {
+            case PICKING_FIRST_POINT:
+                current_first_point_index_ = current_index;
+                if( current_first_point_index_ >= 0 )
+                {
+                    path_manage_state_ = PICKING_CONNECTING_POINT;
+                    tmp_show_line_end_ = event->pos();
+                }
+                break;
+            case PICKING_CONNECTING_POINT:
+                break;
+            case PICKING_PATH_START:
+                break;
+            case PICKING_PATH_END:
+                break;
+            case PICKING_MODIFYING_PATH:
+                break;
+            default:
+                break;
+            }
+            mutex_.unlock();
+
+            update();
         }
-        else if( add_point_mode_ == kInUI && has_map_ && modify_map_state_ == kDoingNothing )
+        else if( is_managing_points_ && add_point_mode_ == kInUI && has_map_ )
         {
             QPointF current_pos = event->pos();
             QPoint tmp_origin = origin_ + origin_offset_ + origin_offset_single_move_;
@@ -347,7 +373,7 @@ void StatusMonitorView::mousePressEvent(QMouseEvent *event)
             {
                 target_points_.clear();
                 need_restart_record_target_list_ = false;
-                points_to_delete_.clear();
+                points_maybe_selected_.clear();
             }
             update();
         }
@@ -364,78 +390,105 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
         origin_offset_single_move_ =  event->pos() - start_pos_for_mouse_move_;
         update();
     }
-    else if(modify_map_state_ == kAddingPoints && !tmp_show_current_adding_points_.empty())
+    else if ( is_modifying_map_ )
     {
-        tmp_show_current_adding_points_[tmp_show_current_adding_points_.size()-1]
-                = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
-        update();
-    }
-    else if( modify_map_state_ == kDeletingArea && !modifyed_points_sets_.empty() )
-    {
-        QPointF current_pos_in_map = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
-        bool need_update = false;
-        for( int i = 0; i < modifyed_points_sets_.size(); ++i )
+        if( modify_map_state_ == kAddingPoints && !tmp_show_current_adding_points_.empty())
         {
-            auto& polygon = modifyed_points_sets_.at(i);
-            bool inside = IsInsidePoly( current_pos_in_map, polygon );
-            if( inside != selected_to_delete_[i])
-            {
-                selected_to_delete_[i] = inside;
-                need_update = true;
-            }
-        }
-
-        if( need_update )
+            tmp_show_current_adding_points_[tmp_show_current_adding_points_.size()-1]
+                    = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
             update();
+        }
+        else if( modify_map_state_ == kDeletingArea && !modifyed_points_sets_.empty() )
+        {
+            QPointF current_pos_in_map = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
+            bool need_update = false;
+            for( int i = 0; i < modifyed_points_sets_.size(); ++i )
+            {
+                auto& polygon = modifyed_points_sets_.at(i);
+                bool inside = IsInsidePoly( current_pos_in_map, polygon );
+                if( inside != selected_to_delete_[i])
+                {
+                    selected_to_delete_[i] = inside;
+                    need_update = true;
+                }
+            }
+
+            if( need_update )
+                update();
+        }
     }
-    else if( is_managing_points_ && add_point_mode_ == kDelete && !target_points_.empty() )
+    else if( !target_points_.empty()
+             && ((is_managing_points_ && add_point_mode_ == kDelete ) || is_managing_path_) )
     {
         QPointF current_pos_in_map = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
         double min_distance = 0.;
         int32_t index = findTheNearestPoint( current_pos_in_map, target_points_, &min_distance );
-
         // change to distance in screen
         min_distance /= resolution_;
         min_distance *= factor_;
 
         bool need_update = false;
-        for( int i = 0; i < points_to_delete_.size(); ++i )
+        for( int i = 0; i < points_maybe_selected_.size(); ++i )
         {
             if( i != index )
             {
-                if( points_to_delete_.at(i) != false )
+                if( points_maybe_selected_.at(i) != false )
                 {
                     need_update = true;
-                    points_to_delete_[i] = false;
+                    points_maybe_selected_[i] = false;
                 }
             }
             else
             {
                 if( min_distance <= 20 )
                 {
-                    if( points_to_delete_.at(i) != true )
+                    if( points_maybe_selected_.at(i) != true )
                     {
                         need_update = true;
-                        points_to_delete_[i] = true;
+                        points_maybe_selected_[i] = true;
                     }
                 }
                 else
                 {
-                    if( points_to_delete_.at(i) != false )
+                    if( points_maybe_selected_.at(i) != false )
                     {
                         need_update = true;
-                        points_to_delete_[i] = false;
+                        points_maybe_selected_[i] = false;
                     }
                 }
             }
         }
 
+        if( current_first_point_index_ >= 0 && event->buttons() & Qt::LeftButton )
+        {
+            tmp_show_line_end_ = current_pos;
+            need_update = true;
+        }
+
         if( need_update )
             update();
-
     }
 
     QWidget::mouseMoveEvent(event);
+}
+
+void StatusMonitorView::addConnectionToPoints()
+{
+    if( current_connecting_point_index_ < 0 || current_first_point_index_ < 0
+            || current_connecting_point_index_ == current_first_point_index_ )
+        return;
+
+    auto& start_point = target_points_[ current_first_point_index_ ];
+    auto& end_point = target_points_[ current_connecting_point_index_ ];
+    if( start_point.id == end_point.id )
+        return;
+
+    if( std::find(start_point.linked_nodes.begin(), start_point.linked_nodes.end(), end_point.id ) == start_point.linked_nodes.end() )
+        start_point.linked_nodes.push_back( end_point.id );
+    if( std::find(end_point.linked_nodes.begin(), end_point.linked_nodes.end(), start_point.id) == end_point.linked_nodes.end() )
+        end_point.linked_nodes.push_back( start_point.id );
+
+    current_connecting_point_index_ = current_first_point_index_ = -1;
 }
 
 void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
@@ -446,42 +499,86 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
         origin_offset_single_move_.setX( 0 );
         origin_offset_single_move_.setY( 0 );
     }
-    else if( event->button() == Qt::LeftButton && modify_map_state_ == kAddingPoints)
+    else if( is_modifying_map_ )
     {
-        QPointF current_pos = event->pos();
-        QPointF relative_pos_in_map = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
-        current_adding_points_.append( relative_pos_in_map );
+        if( event->button() == Qt::LeftButton && modify_map_state_ == kAddingPoints)
+        {
+            QPointF current_pos = event->pos();
+            QPointF relative_pos_in_map = CalculateRobotPos( current_pos, resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
+            current_adding_points_.append( relative_pos_in_map );
 
-        mutex_.lock();
-        tmp_show_current_adding_points_.clear();
-        tmp_show_current_adding_points_.append( current_adding_points_ );
-        tmp_show_current_adding_points_.append( relative_pos_in_map );
-        mutex_.unlock();
-        update();
+            mutex_.lock();
+            tmp_show_current_adding_points_.clear();
+            tmp_show_current_adding_points_.append( current_adding_points_ );
+            tmp_show_current_adding_points_.append( relative_pos_in_map );
+            mutex_.unlock();
+            update();
+        }
+        else if( modify_map_state_ == kDeletingArea && !modifyed_points_sets_.empty() )
+        {
+            for( int i = 0; i < selected_to_delete_.size(); ++i )
+                if( selected_to_delete_.at(i) )
+                {
+                    modifyed_points_sets_.removeAt( i );
+                    selected_to_delete_.removeAt( i );
+                    break;
+                }
+
+            update();
+        }
     }
-    else if( modify_map_state_ == kDeletingArea && !modifyed_points_sets_.empty() )
+    else if( is_managing_path_ && !target_points_.empty() && event->button() == Qt::LeftButton )
     {
-        for( int i = 0; i < selected_to_delete_.size(); ++i )
-            if( selected_to_delete_.at(i) )
+        int current_index = -1;
+        for( int i = 0; i < points_maybe_selected_.size(); ++i )
+        {
+            if (points_maybe_selected_.at(i))
             {
-                modifyed_points_sets_.removeAt( i );
-                selected_to_delete_.removeAt( i );
+                current_index = i;
                 break;
             }
+        }
+
+        mutex_.lock();
+        switch ( path_manage_state_ )
+        {
+        case PICKING_FIRST_POINT:
+            break;
+        case PICKING_CONNECTING_POINT:
+            current_connecting_point_index_ = current_index;
+            path_manage_state_ = PICKING_FIRST_POINT;
+
+            if( current_index >= 0 && current_index != current_first_point_index_)
+                addConnectionToPoints();
+            else
+                tmp_show_line_end_ = CalculateScreenPos( target_points_.at(current_first_point_index_).point,
+                                            resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
+
+            break;
+        case PICKING_PATH_START:
+            break;
+        case PICKING_PATH_END:
+            break;
+        case PICKING_MODIFYING_PATH:
+            break;
+        default:
+            break;
+        }
+        mutex_.unlock();
 
         update();
-    }
-    else if( in_path_mode_ && !target_points_.empty())
-    {
 
     }
-    else if( is_managing_points_ && !target_points_.empty() && add_point_mode_ == kDelete )
+    else if( event->button() == Qt::LeftButton
+             && is_managing_points_
+             && !target_points_.empty()
+             && add_point_mode_ == kDelete )
     {
         for( int i = 0; i < target_points_.size(); ++i )
-            if( points_to_delete_.at(i) )
+            if( points_maybe_selected_.at(i) )
             {
                 target_points_.removeAt( i );
-                points_to_delete_.removeAt( i );
+                points_maybe_selected_.removeAt( i );
                 break;
             }
 
@@ -521,28 +618,47 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
         painter.drawPixmap( target, pixmap, image_.rect() );
 
         QPointF screen_point;
-        for( int i = 0; i < target_points_.size(); ++i )
-        {
-            screen_point = CalculateScreenPos( target_points_.at(i), resolution_, tmp_origin, factor_);
-            QColor color;
-            if( points_to_delete_.at(i) )
-                color = QColor(Qt::blue);
-            else
-                color = QColor(Qt::red);
-
-            PaintATargetPoint( &painter, screen_point, color );
-        }
-
         if( add_point_mode_ == kInUI )
         {
             screen_point = CalculateScreenPos( last_target_point_set_in_ui_, resolution_, tmp_origin, factor_);
             PaintATargetPoint( &painter, screen_point );
         }
+        for( int i = 0; i < target_points_.size(); ++i )
+        {
+            auto& target_point = target_points_.at(i);
+            screen_point = CalculateScreenPos( target_point.point, resolution_, tmp_origin, factor_);
+            QColor color;
+            if( points_maybe_selected_.at(i) )
+                color = QColor(Qt::blue);
+            else
+                color = QColor(Qt::red);
+
+            PaintATargetPoint( &painter, screen_point, color );
+
+            painter.setPen( QPen(QColor(Qt::red), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
+            for( auto& index : target_point.linked_nodes )
+            {
+                if( index <= target_point.id )
+                    continue;
+
+                for( auto& tmp_point : target_points_ )
+                    if( tmp_point.id == index )
+                    {
+                        painter.drawLine( screen_point, CalculateScreenPos( tmp_point.point, resolution_, tmp_origin, factor_) );
+                        break;
+                    }
+            }
+
+            if( current_first_point_index_ >= 0 && i == current_first_point_index_ )
+            {
+                painter.drawLine( screen_point, tmp_show_line_end_ );
+            }
+        }
     }
 
     paintACoordSystem( &painter, tmp_origin );
 
-    if( !in_path_mode_ && !robots_->empty() )
+    if( !is_managing_path_ && !robots_->empty() )
     {
         QPen pen( Qt::blue, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin );
         painter.setPen(pen);
@@ -613,6 +729,15 @@ void StatusMonitorView::slotHandlePointsMngBtns()
             point_mng_sub_btns_[kChangeAddPointMode]->setEnabled( true );
             add_point_mode_ = point_mng_sub_btns_[kChangeAddPointMode]->isChecked() ? kInUI : kInRobot;
         }
+    }
+}
+
+void StatusMonitorView::slotHandlePathMngSubBtns()
+{
+    QPushButton* btn = qobject_cast<QPushButton *>(QObject::sender());
+    if( btn == path_mng_sub_btns_[kConnectPoints] )
+    {
+
     }
 }
 
@@ -892,6 +1017,7 @@ void StatusMonitorView::slotOnModifyMapClicked(bool checked)
         modify_map_sub_btns_[i]->setVisible( checked );
 
     operation_btns_[kManagePath]->setEnabled( !checked );
+    is_modifying_map_ = checked;
 }
 
 void StatusMonitorView::slotOnManagePathClicked(bool checked)
@@ -914,10 +1040,13 @@ void StatusMonitorView::slotOnManagePathClicked(bool checked)
         else
             operation_btns_[i]->setEnabled( !checked && has_map_ );
     }
-    in_path_mode_ = checked;
+    is_managing_path_ = checked;
     update();
 
-    if( in_path_mode_ )
+    for( int i = 0; i < kPathMngSubOperationCount; ++i )
+        path_mng_sub_btns_[i]->setVisible( checked );
+
+    if( is_managing_path_ )
     {
         if( path_manage_nodes_.empty()
             || path_manage_nodes_.size() != target_points_.size() )
@@ -926,9 +1055,7 @@ void StatusMonitorView::slotOnManagePathClicked(bool checked)
             for( int i = 0; i < target_points_.size(); ++i )
                 path_manage_nodes_.append( NodeInPath() );
         }
-
     }
-
 }
 
 void StatusMonitorView::slotOnSwitchBtnClicked()
@@ -1237,26 +1364,30 @@ int32_t StatusMonitorView::getImageInfoFromFile(MapImageInfo &info, const char *
 
 void StatusMonitorView::slotOnAddPoint()
 {
-    if( currentConnected() != 0 )
+    if( currentConnected() != 0 || add_point_mode_ == kDelete )
         return;
+
+    PointWithInfo info_point;
+    last_target_point_id_++;
+    info_point.id = last_target_point_id_;
 
     if( add_point_mode_ == kInRobot )
     {
         current_selected_robot_->sendCommand_AddPoint();
         QPointF current_robot_pos( current_selected_robot_->state_.x, current_selected_robot_->state_.y );
-        target_points_.push_back( current_robot_pos );
-        points_to_delete_.push_back( false );
+
+        info_point.point = current_robot_pos;
     }
     else if( add_point_mode_ == kInUI )
     {
         current_selected_robot_->sendCommand_AddPoint( last_target_point_set_in_ui_.x(), last_target_point_set_in_ui_.y(), 0.);
         qDebug() << last_target_point_set_in_ui_;
-
-        target_points_.push_back( last_target_point_set_in_ui_ );
-        points_to_delete_.push_back( false );
+        info_point.point = last_target_point_set_in_ui_;
     }
 
-    qDebug() << "size = " << target_points_.size();
+    target_points_.push_back( info_point );
+    points_maybe_selected_.push_back( false );
+
     update();
 }
 
