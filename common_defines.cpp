@@ -63,14 +63,13 @@ void PaintADot(QPainter* painter, QPointF &pos )
     painter->drawEllipse( pos, radius, radius );
 }
 
-void PaintATargetPoint( QPainter* painter, QPointF& pos )
+void PaintATargetPoint(QPainter* painter, QPointF& pos , QColor clr)
 {
     if( !painter || pos.x() < 0 || pos.y() < 0 )
         return;
 
     QPointF tmp_point = pos + QPointF(4,-10);
-    QColor color( QColor(Qt::red) );
-    painter->setPen( QPen(color, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
+    painter->setPen( QPen(clr, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
     painter->drawLine( pos, tmp_point );
 
     QPainterPath path;
@@ -78,7 +77,7 @@ void PaintATargetPoint( QPainter* painter, QPointF& pos )
     path.lineTo( tmp_point + QPointF( 8, 0 ) );
     path.lineTo( tmp_point + QPointF( 8, 0 ) + QPointF( -1, 5 ));
     path.lineTo( pos + QPointF( 2, -5 ) );
-    painter->fillPath( path, color );
+    painter->fillPath( path, clr );
 }
 
 bool tooClose( RobotState& a, RobotState& b, double min_distance )
@@ -194,7 +193,7 @@ QPointF CalculateRobotPos( QPointF screen_pos, double resolution, QPoint origin,
     return QPointF( tmp_vector.x(), -tmp_vector.y() );
 }
 
-double CalculateDistance( QPointF& point1, QPointF& point2 )
+double CalculateDistance(const QPointF &point1, const QPointF &point2 )
 {
     double delta_x = point1.x() - point2.x();
     double delta_y = point1.y() - point2.y();

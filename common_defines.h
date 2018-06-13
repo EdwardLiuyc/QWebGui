@@ -152,21 +152,21 @@ struct NodeInPath
 
 struct Path
 {
-    std::list<NodeInPath> nodes;
+    QList<NodeInPath> nodes;
 };
 
 
 void paintACoordSystem(QPainter *painter, QPoint& org );
 void PaintARobot(QPainter* painter, QPointF pos, double yaw, double factor);
 void PaintADot(QPainter* painter, QPointF& pos );
-void PaintATargetPoint( QPainter* painter, QPointF& pos );
+void PaintATargetPoint( QPainter* painter, QPointF& pos, QColor clr = QColor(Qt::red) );
 void PaintRunningHistory( QPainter* painter, std::list<RobotState>& history, double robot_width, double resolution, double factor, QPoint origin );
 void PaintASelectedArea( QPainter* painter, QList<QPointF>& points );
 void PaintASelectedMapArea( QPainter* painter, QList<QPointF>& points_in_map, double resolution, QPoint origin, double factor );
 QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
 QPointF CalculateRobotPos( QPointF screen_pos, double resolution, QPoint origin, double factor );
 bool IsInsidePoly( const QPointF &iPoint, const QList<QPointF> &polygon );
-double CalculateDistance( QPointF& point1, QPointF& point2 );
+double CalculateDistance( const QPointF& point1, const QPointF& point2 );
 
 #ifdef Q_OS_LINUX
 // create a setting file in current directory

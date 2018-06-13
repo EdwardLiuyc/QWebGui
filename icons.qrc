@@ -7,5 +7,7 @@
         <file>icons/checked.svg</file>
         <file>icons/square_checked.svg</file>
         <file>icons/square_unchecked.svg</file>
+        <file>icons/switch_off.svg</file>
+        <file>icons/switch_on.svg</file>
     </qresource>
 </RCC>

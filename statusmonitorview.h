@@ -43,7 +43,7 @@ public:
         kSelectMap,
         kChangeRunningMode,
         kRunOrHalt,
-        kChangeAddPointMode,
+        kManagePoints,
         kModifyMap,
         kManagePath,
         kOperationCount,
@@ -55,6 +55,13 @@ public:
         kSetReverseMode,
         kSetLoopMode,
         kPathMngOperationCount
+    };
+
+    enum PointsMngOperation
+    {
+        kChangeAddPointMode,
+        kDeletePoint,
+        kPointsMngOperationCount
     };
 
     enum ModifyMapOperations
@@ -75,7 +82,7 @@ public:
 
     enum AddPointMode
     {
-        kInRobot, kInUI
+        kInRobot, kInUI, kDelete
     };
 
     inline void setMode( MonitorMode mode ){ monitor_mode_ = mode; }
@@ -94,6 +101,7 @@ protected:
     void hideSwitchableWidgets();
     int32_t currentConnected();
     int32_t getImageInfoFromFile( MapImageInfo& info, const char* info_filename );
+    int32_t findTheNearestPoint( QPointF& src_point, QList<QPointF>& dst_points, double* dis );
 
 signals:
     void signalReturn();
@@ -105,7 +113,7 @@ public slots:
     void slotOnSelectMapBtnClicked( bool checked );
     void slotOnChangeRunningModeClicked( bool checked );
     void slotOnRunOrHaltBtnClicked( bool checked );
-    void slotOnChangeAddPointModeClicked( bool checked );
+    void slotOnPointsManageClicked( bool checked );
     void slotOnModifyMapClicked( bool checked );
     void slotOnManagePathClicked( bool checked );
     void slotOnSwitchBtnClicked();
@@ -114,6 +122,7 @@ public slots:
     void slotOnRcvCurrentRobotMsg( DisplayMessage& msg );
 
     void slotHandleModifyMapBtns();
+    void slotHandlePointsMngBtns();
 
     void slotOnAddPoint();
     void slotOnSetReverseMode();
@@ -123,6 +132,7 @@ private:
     // ** widgets **
     QPushButton*    operation_btns_[kOperationCount];
     QPushButton*    path_mng_btns_[kPathMngOperationCount];
+    QPushButton*    point_mng_sub_btns_[kPointsMngOperationCount];
     QPushButton*    modify_map_sub_btns_[kModifyMapOpCount];
 
     QPushButton*    return_btn_;
@@ -150,11 +160,22 @@ private:
     {
         kNothingToPaint, kNearThePoint, kPointWaitingSelect, kPointSelected
     };
+
+    struct PointWithId
+    {
+        int32_t id;
+        QPointF point;
+    };
+
     QList<QPointF> target_points_;
+    QList<bool> points_to_delete_;
+    QList<NodeInPath> path_manage_nodes_;
+
     QList<TargetPointPaintMode> target_points_paint_mode_;
     bool need_restart_record_target_list_;
     bool has_map_;
     bool got_first_origin_;
+    bool is_managing_points_;
     double factor_;
     double min_factor_;
     double resolution_;
@@ -200,6 +221,9 @@ private:
         PICKING_MODIFYING_PATH
     };
     PathManageState path_manage_state_;
+    QList<Path> paths_;
+    int32_t current_first_point_index_;
+    int32_t current_connecting_point_index_;
 };
 
 #endif // STATUSMONITORVIEW_H
