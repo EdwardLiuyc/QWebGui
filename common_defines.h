@@ -7,19 +7,26 @@
 #include <queue>
 #include <QPainter>
 
-#define SYSTEM_UI_FONT_8   QFont("system-ui",8,QFont::Light)
-#define SYSTEM_UI_FONT_10   QFont("system-ui",10,QFont::Light)
-#define SYSTEM_UI_FONT_12   QFont("system-ui",12,QFont::Light)
-#define SYSTEM_UI_FONT_14   QFont("system-ui",14,QFont::Light)
-#define SYSTEM_UI_FONT_16   QFont("system-ui",16,QFont::Light)
-#define SYSTEM_UI_FONT_18   QFont("system-ui",18,QFont::Light)
+#ifdef Q_OS_LINUX
+#define FONT_NAME       ("system-ui")
+#else
+#define FONT_NAME       ("SIMHEI")
+#endif
 
-#define SYSTEM_UI_FONT_8_BOLD   QFont("system-ui",8,QFont::Bold)
-#define SYSTEM_UI_FONT_10_BOLD   QFont("system-ui",10,QFont::Bold)
-#define SYSTEM_UI_FONT_12_BOLD   QFont("system-ui",12,QFont::Bold)
-#define SYSTEM_UI_FONT_14_BOLD   QFont("system-ui",14,QFont::Bold)
-#define SYSTEM_UI_FONT_16_BOLD   QFont("system-ui",16,QFont::Bold)
-#define SYSTEM_UI_FONT_18_BOLD   QFont("system-ui",18,QFont::Bold)
+#define SYSTEM_UI_FONT_8   QFont(FONT_NAME,8,QFont::Light)
+#define SYSTEM_UI_FONT_10   QFont(FONT_NAME,10,QFont::Light)
+#define SYSTEM_UI_FONT_12   QFont(FONT_NAME,12,QFont::Light)
+#define SYSTEM_UI_FONT_14   QFont(FONT_NAME,14,QFont::Light)
+#define SYSTEM_UI_FONT_16   QFont(FONT_NAME,16,QFont::Light)
+#define SYSTEM_UI_FONT_18   QFont(FONT_NAME,18,QFont::Light)
+
+#define SYSTEM_UI_FONT_8_BOLD   QFont(FONT_NAME,8,QFont::Bold)
+#define SYSTEM_UI_FONT_10_BOLD   QFont(FONT_NAME,10,QFont::Bold)
+#define SYSTEM_UI_FONT_12_BOLD   QFont(FONT_NAME,12,QFont::Bold)
+#define SYSTEM_UI_FONT_14_BOLD   QFont(FONT_NAME,14,QFont::Bold)
+#define SYSTEM_UI_FONT_16_BOLD   QFont(FONT_NAME,16,QFont::Bold)
+#define SYSTEM_UI_FONT_18_BOLD   QFont(FONT_NAME,18,QFont::Bold)
+
 
 #define DOUBLE_EQUAL( a, b )    ( fabs( (a)-(b) ) < 1.e-6 )
 
