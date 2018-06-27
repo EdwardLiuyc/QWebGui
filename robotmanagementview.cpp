@@ -37,7 +37,7 @@ RobotManagementView::RobotManagementView(std::list<RobotSettings> *list, QWidget
     QPalette pal = return_btn_->palette();
     pal.setColor(QPalette::ButtonText,QColor(255,0,0));
     return_btn_->setPalette(pal);
-    return_btn_->setFont( QFont("system-ui",14,QFont::Bold,true) );
+    return_btn_->setFont( SYSTEM_UI_FONT_14_BOLD );
     QObject::connect( return_btn_, SIGNAL(clicked()), this, SLOT(slotOnReturnBtnClicked()));
 }
 

@@ -88,11 +88,11 @@ public:
     enum PathMngSubOperation
     {
         kConnectPoints,
+        kDisConnectPoints,
         kPickBeginAndEnd,
         kModifySinglePath,
         kPathMngSubOperationCount
     };
-
     inline void setMode( MonitorMode mode ){ monitor_mode_ = mode; }
 
 protected:
@@ -110,7 +110,9 @@ protected:
     int32_t currentConnected();
     void addConnectionToPoints();
     int32_t getImageInfoFromFile( MapImageInfo& info, const char* info_filename );
+
     int32_t findTheNearestPoint(QPointF& src_point, QList<PointWithInfo> &dst_points, double* dis );
+    std::pair<int32_t, int32_t> findTheNearstConnection( QPointF& src_point, QList<PointWithInfo> &dst_points, double* dis );
 
 signals:
     void signalReturn();
@@ -171,6 +173,7 @@ private:
     QList<PointWithInfo> target_points_;
     int32_t last_target_point_id_ = -1;
     QList<bool> points_maybe_selected_;
+    std::pair< int32_t, int32_t > connecting_may_be_selected_ = { -1, -1 };
     QList<NodeInPath> path_manage_nodes_;
     bool need_restart_record_target_list_;
     bool has_map_;
@@ -205,27 +208,29 @@ private:
     {
         kUp, kDown, kLeft, kRight, kKeyCount
     };
-    bool key_pressed_[DirKey::kKeyCount];
-    double manual_strength_     = 0.;
-    double manual_angle_        = 0.;
-    Vector2F manual_vec_;
-    bool have_manual_stop_;
+    bool        key_pressed_[DirKey::kKeyCount];
+    double      manual_strength_     = 0.;
+    double      manual_angle_        = 0.;
+    Vector2F    manual_vec_;
+    bool        have_manual_stop_;
 
     // ** path manage **
     bool is_managing_path_;
     enum PathManageState
     {
+        PATH_MANAGE_DOING_NOTHING,
         PICKING_FIRST_POINT,
         PICKING_CONNECTING_POINT,
+        DELETING_CONNECTION,
         PICKING_PATH_START,
         PICKING_PATH_END,
         PICKING_MODIFYING_PATH
     };
-    PathManageState path_manage_state_;
-    QList<Path> paths_;
+    PathManageState path_manage_state_          = PathManageState::PICKING_FIRST_POINT;
     int32_t current_first_point_index_          = -1;
     int32_t current_connecting_point_index_     = -1;
     QPointF tmp_show_line_end_;
+    QList<Path> paths_;
 };
 
 #endif // STATUSMONITORVIEW_H

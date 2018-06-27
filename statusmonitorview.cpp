@@ -49,15 +49,16 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
 
         "You can Halt or Restart the robot if connected",
 
-        "Add the target points in UI or Robot \n"
-        "itself.",
+        "",
 
         "In this mode, you can add some obstacle \n"
         "area into the map, but first you should \n"
         "have loaded a map, this function is \n"
         "enabled only in Path Management Mode.",
 
-        ""
+        "You can add connection between points, \n"
+        "add path with start and end points or \n"
+        "modify an existing path."
 
     };
     for( int i = 0; i < kOperationCount; ++i )
@@ -178,7 +179,7 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
 
     QString path_mng_sub_btn_str[kPathMngSubOperationCount] =
     {
-        "connect points", "pick ends", "modify a path"
+        "connect points", "disconnect", "pick ends", "modify a path"
     };
     for( int i = 0; i < kPathMngSubOperationCount; ++i )
     {
@@ -191,6 +192,9 @@ StatusMonitorView::StatusMonitorView(std::list<Robot> *robots, std::list<MapSett
 
         QObject::connect( path_mng_sub_btns_[i], SIGNAL(clicked()), this, SLOT(slotHandlePathMngSubBtns()) );
     }
+    path_mng_sub_btns_[PathMngSubOperation::kConnectPoints]->setChecked( true );
+    path_mng_sub_btns_[PathMngSubOperation::kPickBeginAndEnd]->setEnabled( false );
+    path_mng_sub_btns_[PathMngSubOperation::kModifySinglePath]->setEnabled( false );
 
     robot_status_view_ = new RobotStatusView( this );
     robot_status_view_->setFocusPolicy( Qt::NoFocus );
@@ -317,6 +321,43 @@ int32_t StatusMonitorView::findTheNearestPoint(QPointF &src_point, QList<PointWi
 
     *dis = min_distance;
     return index;
+}
+
+std::pair<int32_t, int32_t> StatusMonitorView::findTheNearstConnection(QPointF &src_point, QList<PointWithInfo> &dst_points, double *dis)
+{
+    std::pair<int32_t, int32_t> connect = {-1,-1};
+    if( !dis || dst_points.empty() )
+        return connect;
+
+    double min_distance = 1.e10;
+    for( auto& point1 : dst_points )
+    {
+        int32_t id1 = point1.id;
+        for( auto& id2 : point1.linked_nodes )
+        {
+            if( id2 <= id1 )
+                continue;
+
+            double dist = 1.e10;
+            for( auto& point2 : dst_points )
+            {
+                if( point2.id == id2 )
+                {
+                    dist = CalculateDistanceFromPointToSegment( src_point, point1.point, point2.point );
+                    break;
+                }
+            }
+
+            if( dist <= min_distance )
+            {
+                connect = {id1, id2};
+                min_distance = dist;
+            }
+        }
+    }
+
+    *dis = min_distance;
+    return connect;
 }
 
 void StatusMonitorView::mousePressEvent(QMouseEvent *event)
@@ -465,6 +506,22 @@ void StatusMonitorView::mouseMoveEvent(QMouseEvent *event)
             need_update = true;
         }
 
+        if( path_manage_state_ == DELETING_CONNECTION )
+        {
+            std::pair<int32_t, int32_t> connect = findTheNearstConnection( current_pos_in_map, target_points_, &min_distance );
+            min_distance /= resolution_;
+            min_distance *= factor_;
+
+            if( min_distance > 20 )
+                connect = std::make_pair<int32_t, int32_t>(-1,-1);
+
+            if( connect != connecting_may_be_selected_ )
+            {
+                need_update = true;
+                connecting_may_be_selected_ = connect;
+            }
+        }
+
         if( need_update )
             update();
     }
@@ -542,8 +599,6 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
         mutex_.lock();
         switch ( path_manage_state_ )
         {
-        case PICKING_FIRST_POINT:
-            break;
         case PICKING_CONNECTING_POINT:
             current_connecting_point_index_ = current_index;
             path_manage_state_ = PICKING_FIRST_POINT;
@@ -555,12 +610,49 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
                                             resolution_, origin_ + origin_offset_ + origin_offset_single_move_, factor_ );
 
             break;
+
+        case DELETING_CONNECTION:
+            if( std::pair<int32_t, int32_t>(-1,-1) != connecting_may_be_selected_ )
+            {
+                int32_t id1 = connecting_may_be_selected_.first;
+                int32_t id2 = connecting_may_be_selected_.second;
+
+                // delete connection of both points
+                for( auto& point : target_points_ )
+                {
+                    if( point.id == id1 )
+                        for( std::vector<int32_t>::iterator it = point.linked_nodes.begin();
+                             it != point.linked_nodes.end();
+                             ++it )
+                        {
+                            if( *it == id2 )
+                            {
+                                point.linked_nodes.erase( it );
+                                break;
+                            }
+                        }
+                    else if ( point.id == id2 )
+                        for( std::vector<int32_t>::iterator it = point.linked_nodes.begin();
+                             it != point.linked_nodes.end();
+                             ++it )
+                        {
+                            if( *it == id1 )
+                            {
+                                point.linked_nodes.erase( it );
+                                break;
+                            }
+                        }
+                }
+            }
+            break;
+
         case PICKING_PATH_START:
             break;
         case PICKING_PATH_END:
             break;
         case PICKING_MODIFYING_PATH:
             break;
+        case PICKING_FIRST_POINT:
         default:
             break;
         }
@@ -574,13 +666,26 @@ void StatusMonitorView::mouseReleaseEvent(QMouseEvent *event)
              && !target_points_.empty()
              && add_point_mode_ == kDelete )
     {
+        // id of delete point
+        int32_t id;
         for( int i = 0; i < target_points_.size(); ++i )
             if( points_maybe_selected_.at(i) )
             {
+                id = target_points_.at(i).id;
                 target_points_.removeAt( i );
                 points_maybe_selected_.removeAt( i );
                 break;
             }
+
+        for( auto& point : target_points_ )
+            for( std::vector<int32_t>::iterator it = point.linked_nodes.begin();
+                 it != point.linked_nodes.end();
+                 it++ )
+                if( *it == id )
+                {
+                    point.linked_nodes.erase( it );
+                    break;
+                }
 
         update();
     }
@@ -625,8 +730,8 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
         }
         for( int i = 0; i < target_points_.size(); ++i )
         {
-            auto& target_point = target_points_.at(i);
-            screen_point = CalculateScreenPos( target_point.point, resolution_, tmp_origin, factor_);
+            auto& point = target_points_.at(i);
+            screen_point = CalculateScreenPos( point.point, resolution_, tmp_origin, factor_);
             QColor color;
             if( points_maybe_selected_.at(i) )
                 color = QColor(Qt::blue);
@@ -635,20 +740,25 @@ void StatusMonitorView::paintEvent(QPaintEvent *event)
 
             PaintATargetPoint( &painter, screen_point, color );
 
-            painter.setPen( QPen(QColor(Qt::red), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
-            for( auto& index : target_point.linked_nodes )
+            for( auto& node_id : point.linked_nodes )
             {
-                if( index <= target_point.id )
+                if( node_id <= point.id )
                     continue;
 
                 for( auto& tmp_point : target_points_ )
-                    if( tmp_point.id == index )
+                    if( tmp_point.id == node_id )
                     {
+                        if( std::pair<int32_t,int32_t>(point.id, node_id) == connecting_may_be_selected_ )
+                            painter.setPen( QPen(QColor(Qt::blue), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
+                        else
+                            painter.setPen( QPen(QColor(Qt::red), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
+
                         painter.drawLine( screen_point, CalculateScreenPos( tmp_point.point, resolution_, tmp_origin, factor_) );
                         break;
                     }
             }
 
+            painter.setPen( QPen(QColor(Qt::red), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) );
             if( current_first_point_index_ >= 0 && i == current_first_point_index_ )
             {
                 painter.drawLine( screen_point, tmp_show_line_end_ );
@@ -735,9 +845,59 @@ void StatusMonitorView::slotHandlePointsMngBtns()
 void StatusMonitorView::slotHandlePathMngSubBtns()
 {
     QPushButton* btn = qobject_cast<QPushButton *>(QObject::sender());
-    if( btn == path_mng_sub_btns_[kConnectPoints] )
+    if( btn == path_mng_sub_btns_[PathMngSubOperation::kConnectPoints] )
     {
+        if( btn->isChecked() )
+        {
+            path_manage_state_ = PICKING_FIRST_POINT;
 
+            path_mng_sub_btns_[PathMngSubOperation::kDisConnectPoints]->setEnabled( true );
+            path_mng_sub_btns_[PathMngSubOperation::kDisConnectPoints]->setChecked( false );
+            path_mng_sub_btns_[PathMngSubOperation::kPickBeginAndEnd]->setEnabled( false );
+            path_mng_sub_btns_[PathMngSubOperation::kModifySinglePath]->setEnabled( false );
+        }
+        else
+        {
+            path_manage_state_ = PATH_MANAGE_DOING_NOTHING;
+
+            path_mng_sub_btns_[PathMngSubOperation::kDisConnectPoints]->setEnabled( true );
+            path_mng_sub_btns_[PathMngSubOperation::kPickBeginAndEnd]->setEnabled( true );
+            path_mng_sub_btns_[PathMngSubOperation::kModifySinglePath]->setEnabled( true );
+        }
+    }
+    else if( btn == path_mng_sub_btns_[PathMngSubOperation::kDisConnectPoints] )
+    {
+        if( btn->isChecked() )
+        {
+            path_manage_state_ = DELETING_CONNECTION;
+
+            path_mng_sub_btns_[PathMngSubOperation::kConnectPoints]->setEnabled( true );
+            path_mng_sub_btns_[PathMngSubOperation::kConnectPoints]->setChecked( false );
+            path_mng_sub_btns_[PathMngSubOperation::kPickBeginAndEnd]->setEnabled( false );
+            path_mng_sub_btns_[PathMngSubOperation::kModifySinglePath]->setEnabled( false );
+        }
+        else
+        {
+            path_manage_state_ = PATH_MANAGE_DOING_NOTHING;
+
+            path_mng_sub_btns_[PathMngSubOperation::kConnectPoints]->setEnabled( true );
+            path_mng_sub_btns_[PathMngSubOperation::kPickBeginAndEnd]->setEnabled( true );
+            path_mng_sub_btns_[PathMngSubOperation::kModifySinglePath]->setEnabled( true );
+        }
+    }
+    else if ( btn == path_mng_sub_btns_[PathMngSubOperation::kPickBeginAndEnd] )
+    {
+        bool checked = btn->isChecked();
+        if( checked )
+        {
+            path_manage_state_ = PICKING_PATH_START;
+        }
+        else
+            path_manage_state_ = PATH_MANAGE_DOING_NOTHING;
+
+        path_mng_sub_btns_[PathMngSubOperation::kConnectPoints]->setEnabled( !checked );
+        path_mng_sub_btns_[PathMngSubOperation::kDisConnectPoints]->setEnabled( !checked );
+        path_mng_sub_btns_[PathMngSubOperation::kModifySinglePath]->setEnabled( !checked );
     }
 }
 

@@ -200,3 +200,19 @@ double CalculateDistance(const QPointF &point1, const QPointF &point2 )
 
     return qSqrt( delta_x * delta_x + delta_y * delta_y );
 }
+
+double CalculateDistanceFromPointToSegment( const QPointF& point, const QPointF& p1, const QPointF& p2 )
+{
+    double cross = (p2.x() - p1.x())*(point.x() - p1.x()) + (p2.y() - p1.y()) * (point.y() - p1.y());
+    if( cross <= 0 )
+        return qSqrt((point.x() - p1.x()) * (point.x() - p1.x()) + (point.y() - p1.y()) * (point.y() - p1.y()));
+
+    double d2 = (p2.x() - p1.x()) * (p2.x() - p1.x()) + (p2.y() - p1.y()) * (p2.y() - p1.y());
+    if( cross >= d2 )
+        return qSqrt((point.x() - p2.x()) * (point.x() - p2.x()) + (point.y() - p2.y()) * (point.y() - p2.y()));
+
+    double r = cross / d2;
+    double px = p1.x() + (p2.x() - p1.x()) * r;
+    double py = p1.y() + (p2.y() - p1.y()) * r;
+    return qSqrt((point.x() - px) * (point.x() - px) + (py - point.y()) * (py - point.y()));
+}

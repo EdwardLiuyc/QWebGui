@@ -181,7 +181,10 @@ void PaintASelectedMapArea( QPainter* painter, QList<QPointF>& points_in_map, do
 QPointF CalculateScreenPos( QPointF robot_pos, double resolution, QPoint origin, double factor );
 QPointF CalculateRobotPos( QPointF screen_pos, double resolution, QPoint origin, double factor );
 bool IsInsidePoly( const QPointF &iPoint, const QList<QPointF> &polygon );
+
+
 double CalculateDistance( const QPointF& point1, const QPointF& point2 );
+double CalculateDistanceFromPointToSegment( const QPointF& point, const QPointF& p1, const QPointF& p2 );
 
 #ifdef Q_OS_LINUX
 // create a setting file in current directory
